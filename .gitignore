@@ -1,0 +1,55 @@
+# Flutter & Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# IDE & Editors
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# macOS & System
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Android
+**/android/.gradle/
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/GeneratedPluginRegistrant.java
+**/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# iOS
+**/ios/**/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.h
+**/ios/Runner/GeneratedPluginRegistrant.m
+
+# Web
+**/web/temp/
+
+# Coverage & Test
+coverage/
+*.lcov
