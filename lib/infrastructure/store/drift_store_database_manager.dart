@@ -107,6 +107,28 @@ class DriftStoreDatabaseManager implements StoreDatabaseManager {
     }
   }
 
+  /// Returns the cached active [StoreDatabase] instance if open.
+  StoreDatabase? getOpenStoreDatabase(StoreId storeId) =>
+      _openDatabases[storeId];
+
+  /// Retrieves or opens the [StoreDatabase] instance for the store.
+  Future<Result<StoreDatabase>> getOrOpenStoreDatabase(StoreId storeId) async {
+    final existing = _openDatabases[storeId];
+    if (existing != null && existing.isOpen) {
+      return Success(existing);
+    }
+    final openRes = await open(storeId);
+    if (openRes.isFailure) return Failure(openRes.errorOrNull!);
+    final db = _openDatabases[storeId];
+    if (db == null) {
+      return Failure(
+        NotFoundError(
+            'Failed to locate open database for store ${storeId.value}'),
+      );
+    }
+    return Success(db);
+  }
+
   @override
   Future<Result<void>> close(StoreId storeId) async {
     try {

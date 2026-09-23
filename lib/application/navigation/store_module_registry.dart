@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/navigation/store_module.dart';
 import '../../presentation/home/store_home_screen.dart';
-import '../../presentation/items/items_placeholder_screen.dart';
+import '../../presentation/items/items_screen.dart';
 import '../../presentation/receivings/receivings_placeholder_screen.dart';
 import '../../presentation/reports/reports_placeholder_screen.dart';
 import '../../presentation/sales/sales_placeholder_screen.dart';
@@ -44,7 +44,7 @@ final List<StoreModule> kDefaultStoreModules = [
     order: 2,
     category: StoreModuleCategory.operations,
     showInBottomNav: true,
-    builder: (context) => const ItemsPlaceholderScreen(),
+    builder: (context) => const ItemsScreen(),
   ),
   StoreModule(
     id: StoreModuleId.receivings,

@@ -21,6 +21,13 @@ sealed class Result<T> {
         Failure(:final error) => error,
       };
 
+  /// Returns the error message if this is a [Failure], or null otherwise.
+  String? get errorMessageOrNull => switch (this) {
+        Success() => null,
+        Failure(:final error) =>
+          error is Exception ? error.toString() : '$error',
+      };
+
   /// Transforms the success value with [mapper] while preserving failure.
   Result<R> map<R>(R Function(T value) mapper) => switch (this) {
         Success(:final value) => Success(mapper(value)),

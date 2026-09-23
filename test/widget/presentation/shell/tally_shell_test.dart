@@ -150,7 +150,7 @@ void main() {
       await tester.tap(find.text('Items').first);
       await tester.pumpAndSettle();
 
-      expect(find.text('Items & Inventory'), findsOneWidget);
+      expect(find.text('Items Catalog'), findsOneWidget);
     });
 
     testWidgets('shows loading indicator when no store is selected',

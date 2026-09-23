@@ -64,6 +64,11 @@ final class NotFoundError extends AppError {
   const NotFoundError(super.message, {super.cause});
 }
 
+/// Occurs when an operation violates a domain business rule or invariant.
+final class DomainError extends AppError {
+  const DomainError(super.message, {super.cause});
+}
+
 /// Fallback for unexpected or unmapped failures.
 final class UnknownError extends AppError {
   const UnknownError(super.message, {super.cause});

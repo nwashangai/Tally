@@ -8,7 +8,7 @@ import '../../core/result/result.dart';
 import '../../domain/store/store_id.dart';
 
 /// Schema version for Tally store databases.
-const int kCurrentStoreDbSchemaVersion = 1;
+const int kCurrentStoreDbSchemaVersion = 2;
 
 /// Drift-backed database instance for a single Tally store.
 /// Manages connection, SQLCipher encryption pragma, and foundational schema tables.
@@ -57,6 +57,9 @@ class StoreDatabase {
 
   bool get isOpen => _isOpen;
 
+  /// Exposes the underlying Drift database executor for repositories.
+  NativeDatabase get executor => _executor;
+
   /// Opens the database and initializes foundational schema tables.
   Future<Result<void>> open() async {
     try {
@@ -83,7 +86,7 @@ class StoreDatabase {
     }
   }
 
-  /// Initializes base metadata and health tables.
+  /// Initializes base metadata, health, item catalog, and transaction tables.
   Future<void> _initializeSchema() async {
     // Foundational table: metadata (store ID, created date, schema version)
     await _executor.runCustom('''
@@ -99,6 +102,68 @@ class StoreDatabase {
         applied_at TEXT NOT NULL
       );
     ''');
+
+    // Item catalog table
+    await _executor.runCustom('''
+      CREATE TABLE IF NOT EXISTS items (
+        id TEXT PRIMARY KEY,
+        store_id TEXT NOT NULL,
+        sku TEXT,
+        barcode TEXT,
+        name TEXT NOT NULL,
+        description TEXT,
+        category_id TEXT,
+        unit TEXT NOT NULL,
+        cost_price REAL NOT NULL DEFAULT 0.0,
+        base_selling_price REAL NOT NULL DEFAULT 0.0,
+        min_selling_price REAL,
+        quantity REAL NOT NULL DEFAULT 0.0,
+        reorder_level REAL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    ''');
+
+    // Index optimizations for search, filtering, and sorting
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_items_store_name ON items(store_id, name);',
+    );
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_items_store_sku ON items(store_id, sku);',
+    );
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_items_store_barcode ON items(store_id, barcode);',
+    );
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_items_store_category ON items(store_id, category_id);',
+    );
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_items_store_active ON items(store_id, is_active);',
+    );
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_items_store_updated ON items(store_id, updated_at);',
+    );
+
+    // Historical ledger table for transactions (receivings, sales, audit adjustments)
+    await _executor.runCustom('''
+      CREATE TABLE IF NOT EXISTS item_transactions (
+        id TEXT PRIMARY KEY,
+        store_id TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        quantity_delta REAL NOT NULL,
+        unit_cost REAL,
+        unit_price REAL,
+        reference_id TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL
+      );
+    ''');
+
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_item_transactions_item ON item_transactions(store_id, item_id);',
+    );
 
     // Record store ID and schema version
     await _executor.runInsert(

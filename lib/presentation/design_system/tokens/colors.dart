@@ -58,4 +58,13 @@ abstract final class TallyColors {
 
   /// Active count session indicator and stepper focus accent.
   static const tallyActive = Color(0xFF38BDF8);
+
+  // ---------------------------------------------------------------------------
+  // Action Button Neutral/Cancel tokens
+  // ---------------------------------------------------------------------------
+
+  /// Uniform light/semi-transparent gray background for cancel and dismiss buttons.
+  static const buttonCancelBackground =
+      Color(0x14172A45); // ~8% primaryNavy tint
+  static const buttonCancelForeground = Color(0xFF475569); // slate-600 neutral
 }
