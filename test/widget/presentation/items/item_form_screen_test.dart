@@ -214,4 +214,37 @@ void main() {
     expect(created.pricing.minSellingPrice, 240);
     expect(created.inventory.quantity, 42);
   });
+
+  testWidgets('Barcode input contains scanner suffix icon button',
+      (tester) async {
+    final fakeRepo = _FakeItemRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          itemRepositoryProvider.overrideWithValue(fakeRepo),
+          currentStoreProvider.overrideWith(
+            (ref) => _FakeCurrentStoreNotifier(
+              StoreSelected(store: sampleStore, dbPath: '/test/store-1.db'),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ItemFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Verify barcode field is present with scan suffix icon
+    expect(find.byIcon(Icons.qr_code_scanner), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Barcode'), findsOneWidget);
+
+    // Verify tapping scan icon does not crash
+    await tester.tap(find.byIcon(Icons.qr_code_scanner));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+  });
 }
+

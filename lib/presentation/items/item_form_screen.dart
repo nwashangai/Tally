@@ -11,6 +11,7 @@ import '../design_system/extensions/responsive.dart';
 import '../design_system/tokens/colors.dart';
 import '../design_system/tokens/dimensions.dart';
 import '../design_system/widgets/tally_cancel_button.dart';
+import 'widgets/barcode_scanner_sheet.dart';
 
 /// Dedicated screen for creating or editing an Item in the store catalog.
 /// Provides clear back navigation, form validation, and return-to-list confirmation.
@@ -249,6 +250,22 @@ class _ItemFormScreenState extends ConsumerState<ItemFormScreen> {
     }
   }
 
+  Future<void> _scanBarcode() async {
+    final scannedBarcode = await BarcodeScannerSheet.scan(context);
+    if (scannedBarcode != null && mounted) {
+      setState(() {
+        _barcodeCtrl.text = scannedBarcode;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Scanned barcode: $scannedBarcode'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isPhone = context.isPhone;
@@ -380,10 +397,15 @@ class _ItemFormScreenState extends ConsumerState<ItemFormScreen> {
                             const SizedBox(height: TallySpacing.md),
                             TextFormField(
                               controller: _barcodeCtrl,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Barcode',
                                 hintText: 'e.g. 5449000000996',
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.qr_code_scanner),
+                                  tooltip: 'Scan Barcode with Camera',
+                                  onPressed: _scanBarcode,
+                                ),
                               ),
                             ),
                           ] else ...[
@@ -403,10 +425,15 @@ class _ItemFormScreenState extends ConsumerState<ItemFormScreen> {
                                 Expanded(
                                   child: TextFormField(
                                     controller: _barcodeCtrl,
-                                    decoration: const InputDecoration(
+                                    decoration: InputDecoration(
                                       labelText: 'Barcode',
                                       hintText: 'e.g. 5449000000996',
-                                      border: OutlineInputBorder(),
+                                      border: const OutlineInputBorder(),
+                                      suffixIcon: IconButton(
+                                        icon: const Icon(Icons.qr_code_scanner),
+                                        tooltip: 'Scan Barcode with Camera',
+                                        onPressed: _scanBarcode,
+                                      ),
                                     ),
                                   ),
                                 ),
