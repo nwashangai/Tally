@@ -40,6 +40,12 @@ dependencies:
   # Integrity & Checksum verification for snapshots
   crypto: ^3.0.6
 
+  # Local Persistence (Drift + Encrypted SQLite via SQLCipher)
+  drift: ^2.24.0
+  sqlite3: ^2.4.6
+  sqlcipher_flutter_libs: ^0.6.1
+  sqlite3_flutter_libs: ^0.6.0+eol
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -47,6 +53,8 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   mocktail: ^1.0.4
+  drift_dev: ^2.24.0
+  build_runner: ^2.4.13
 
 flutter:
   uses-material-design: true

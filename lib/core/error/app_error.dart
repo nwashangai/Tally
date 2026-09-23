@@ -59,6 +59,11 @@ final class ConflictError extends AppError {
       {required this.conflictDetails, super.cause});
 }
 
+/// Occurs when a requested entity or file does not exist.
+final class NotFoundError extends AppError {
+  const NotFoundError(super.message, {super.cause});
+}
+
 /// Fallback for unexpected or unmapped failures.
 final class UnknownError extends AppError {
   const UnknownError(super.message, {super.cause});

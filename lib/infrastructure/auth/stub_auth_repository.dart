@@ -12,7 +12,10 @@ class StubAuthRepository implements AuthRepository {
   AuthState _currentState = const AuthStateUnauthenticated();
 
   @override
-  Stream<AuthState> watchAuthState() => _controller.stream;
+  Stream<AuthState> watchAuthState() async* {
+    yield _currentState;
+    yield* _controller.stream;
+  }
 
   @override
   AuthState get currentState => _currentState;

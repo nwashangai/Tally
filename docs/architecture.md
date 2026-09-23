@@ -44,23 +44,61 @@ Infrastructure
   └── Platform adapters
 ```
 
+## Core Subsystems & Separation of Concerns
+
+Tally is organized around 4 distinct architectural subsystems:
+
+```text
+                         TALLY
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+      Authentication                 Store Management
+             │                           │
+       Authenticated User          Store Metadata
+             │                           │
+             └─────────────┬─────────────┘
+                           │
+                     Current Store
+                           │
+                           ▼
+                  Store Database Manager
+                           │
+                           ▼
+               Drift + Encrypted SQLite
+                           │
+                           ▼
+                      store-id.db
+                           │
+                 ┌─────────┴─────────┐
+                 │                   │
+              Local                Remote
+               File                 Backup
+                 │                   │
+                 │             Serverless API
+                 │                   │
+                 │             Remote Drive
+                 │                   │
+                 └───────── Sync ────┘
+```
+
+1. **Authentication Subsystem**: Handles user authentication (Google, Apple, Facebook), session persistence in `FlutterSecureStorage`, and user identity. Auth data NEVER lives inside store database files.
+2. **Store Management Subsystem**: Discovers accessible stores for the authenticated user, verifies ownership relations, and manages store creation/selection.
+3. **Store Database Subsystem**: Each store owns its isolated, encrypted database file (`<documents>/tally/stores/<store_id>.db`) powered by **Drift** + **SQLCipher**. All operational inventory transactions run against this local file.
+4. **Remote Serverless Storage Subsystem**: Secure serverless object storage for background sync and user-initiated backups of database files with server-side authorization.
+
 ## Serverless boundary
 
 The Flutter client must never contain privileged backend credentials.
 
 Serverless functions/edge functions are responsible for operations requiring trusted validation or secrets. Database policies/RLS/security rules enforce ownership and authorization.
 
-## Offline strategy
+## Offline & Local-First Strategy
 
-Use a local-first write queue only for workflows whose conflict semantics are explicitly defined.
-
-Each queued mutation should have:
-- client mutation ID/idempotency key;
-- creation time;
-- entity/version information as needed;
-- retry count/state;
-- deterministic payload;
-- reconciliation behavior.
+1. The local encrypted SQLite file is the authoritative interactive database while a store is active.
+2. Operations work completely offline without network blocking.
+3. Checkpoints (`PRAGMA wal_checkpoint(FULL)`) ensure safe database copies before export, sync, or backup.
+4. Background synchronization updates the remote serverless storage without interrupting user workflows.
 
 ## Backend provider
 

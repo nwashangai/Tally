@@ -16,7 +16,12 @@ help:
 	@echo "  make gate            - Run complete Quality Gate audit (format, analyze, test)"
 	@echo "  make format          - Format all Dart source files"
 	@echo "  make analyze         - Run static analysis"
-	@echo "  make clean           - Clean build cache and restore packages"
+	@echo "  make clean           - Clean build cache and restore packages (flutter clean -> flutter pub get)"
+	@echo "  make rebuild         - Clean cache, resolve packages, and launch dev environment"
+	@echo "  make rebuild-android - Clean cache, resolve packages, and rebuild/launch Android"
+	@echo "  make rebuild-ios     - Clean cache, resolve packages, and rebuild/launch iOS"
+	@echo "  make rebuild-web     - Clean cache, resolve packages, and rebuild/launch Web"
+
 
 dev:
 	@./scripts/dev.sh $(ARGS)
@@ -64,3 +69,12 @@ analyze:
 
 clean:
 	@./scripts/clean.sh
+
+rebuild: clean dev
+
+rebuild-android: clean dev-android
+
+rebuild-ios: clean dev-ios
+
+rebuild-web: clean dev-web
+
