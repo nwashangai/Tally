@@ -8,6 +8,8 @@ import '../../../domain/receiving/receiving_status.dart';
 import '../../design_system/extensions/responsive.dart';
 import '../../design_system/tokens/colors.dart';
 import '../../design_system/tokens/dimensions.dart';
+import '../../design_system/widgets/tally_filter_chips_bar.dart';
+import '../../design_system/widgets/tally_search_field.dart';
 
 /// Top toolbar for searching, filtering by status/date/supplier, and initiating new Receivings.
 class ReceivingSearchFilterBar extends ConsumerStatefulWidget {
@@ -316,69 +318,25 @@ class _ReceivingSearchFilterBarState
           children: [
             // Search Input
             Expanded(
-              child: Container(
-                height: 42,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(TallyRadii.md),
-                  border: Border.all(
-                    color: _isSearchFocused
-                        ? TallyColors.primaryNavy
-                        : TallyColors.lightBorder,
-                    width: _isSearchFocused ? 1.5 : 1.0,
-                  ),
-                ),
-                child: TextField(
-                  controller: _searchCtrl,
-                  focusNode: _searchFocusNode,
-                  onChanged: _onSearchChanged,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: InputDecoration(
-                    hintText: isPhone
-                        ? 'Search reference or supplier...'
-                        : 'Search by reference number, supplier, or notes...',
-                    hintStyle: const TextStyle(
-                      fontSize: 13,
-                      color: TallyColors.slateMuted,
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      size: 18,
-                      color: TallyColors.slateMuted,
-                    ),
-                    suffixIcon: _searchCtrl.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 16),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              ref
-                                  .read(receivingQueryProvider.notifier)
-                                  .setSearch('');
-                              setState(() {});
-                            },
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 10,
-                      horizontal: 12,
-                    ),
-                  ),
-                ),
+              child: TallySearchField(
+                controller: _searchCtrl,
+                focusNode: _searchFocusNode,
+                isFocused: _isSearchFocused,
+                showCancelButton: showExpandedSearch,
+                onChanged: _onSearchChanged,
+                hintText: isPhone
+                    ? 'Search reference or supplier...'
+                    : 'Search by reference number, supplier, or notes...',
+                onClear: () {
+                  _searchCtrl.clear();
+                  ref.read(receivingQueryProvider.notifier).setSearch('');
+                  setState(() {});
+                },
+                onCancel: () => _searchFocusNode.unfocus(),
               ),
             ),
 
-            if (showExpandedSearch) ...[
-              const SizedBox(width: TallySpacing.xs),
-              TextButton(
-                onPressed: () => _searchFocusNode.unfocus(),
-                style: TextButton.styleFrom(
-                  foregroundColor: TallyColors.primaryNavy,
-                  visualDensity: VisualDensity.compact,
-                ),
-                child: const Text('Cancel'),
-              ),
-            ] else ...[
+            if (!showExpandedSearch) ...[
               const SizedBox(width: TallySpacing.sm),
 
               // Filter button with badge
@@ -444,93 +402,49 @@ class _ReceivingSearchFilterBarState
         ),
 
         // Active Filter Chips Row
-        if (activeFiltersCount > 0 || query.search.isNotEmpty) ...[
-          const SizedBox(height: TallySpacing.xs),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                if (query.search.isNotEmpty) ...[
-                  InputChip(
-                    label: Text('Search: "${query.search}"'),
-                    onDeleted: () {
-                      _searchCtrl.clear();
-                      ref.read(receivingQueryProvider.notifier).setSearch('');
-                      setState(() {});
-                    },
-                    deleteIconColor: TallyColors.slateMuted,
-                    backgroundColor: TallyColors.iceFrost,
-                    labelStyle: const TextStyle(
-                      fontSize: 12,
-                      color: TallyColors.primaryNavy,
-                    ),
-                  ),
-                  const SizedBox(width: TallySpacing.xs),
-                ],
-                if (query.status != null) ...[
-                  InputChip(
-                    label: Text('Status: ${query.status!.name.toUpperCase()}'),
-                    onDeleted: () => ref
-                        .read(receivingQueryProvider.notifier)
-                        .setStatus(null),
-                    deleteIconColor: TallyColors.slateMuted,
-                    backgroundColor: TallyColors.iceFrost,
-                    labelStyle: const TextStyle(
-                      fontSize: 12,
-                      color: TallyColors.primaryNavy,
-                    ),
-                  ),
-                  const SizedBox(width: TallySpacing.xs),
-                ],
-                if (query.supplier != null) ...[
-                  InputChip(
-                    label: Text('Supplier: ${query.supplier}'),
-                    onDeleted: () => ref
-                        .read(receivingQueryProvider.notifier)
-                        .setSupplier(null),
-                    deleteIconColor: TallyColors.slateMuted,
-                    backgroundColor: TallyColors.iceFrost,
-                    labelStyle: const TextStyle(
-                      fontSize: 12,
-                      color: TallyColors.primaryNavy,
-                    ),
-                  ),
-                  const SizedBox(width: TallySpacing.xs),
-                ],
-                if (query.startDate != null || query.endDate != null) ...[
-                  InputChip(
-                    label: Text(
-                      'Dates: ${query.startDate != null ? DateFormat('MM/dd').format(query.startDate!) : '...'} - ${query.endDate != null ? DateFormat('MM/dd').format(query.endDate!) : '...'}',
-                    ),
-                    onDeleted: () => ref
-                        .read(receivingQueryProvider.notifier)
-                        .setDateRange(),
-                    deleteIconColor: TallyColors.slateMuted,
-                    backgroundColor: TallyColors.iceFrost,
-                    labelStyle: const TextStyle(
-                      fontSize: 12,
-                      color: TallyColors.primaryNavy,
-                    ),
-                  ),
-                  const SizedBox(width: TallySpacing.xs),
-                ],
-                TextButton(
-                  onPressed: () {
+        if (activeFiltersCount > 0 || query.search.isNotEmpty)
+          TallyFilterChipsBar(
+            chips: [
+              if (query.search.isNotEmpty)
+                TallyFilterChip(
+                  label: 'Search: "${query.search}"',
+                  onDeleted: () {
                     _searchCtrl.clear();
-                    ref.read(receivingQueryProvider.notifier).clearFilters();
+                    ref.read(receivingQueryProvider.notifier).setSearch('');
                     setState(() {});
                   },
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    foregroundColor: TallyColors.slateMuted,
-                  ),
-                  child:
-                      const Text('Clear All', style: TextStyle(fontSize: 11)),
                 ),
-              ],
-            ),
+              if (query.status != null)
+                TallyFilterChip(
+                  label: 'Status: ${query.status!.name.toUpperCase()}',
+                  onDeleted: () => ref
+                      .read(receivingQueryProvider.notifier)
+                      .setStatus(null),
+                ),
+              if (query.supplier != null)
+                TallyFilterChip(
+                  label: 'Supplier: ${query.supplier}',
+                  onDeleted: () => ref
+                      .read(receivingQueryProvider.notifier)
+                      .setSupplier(null),
+                ),
+              if (query.startDate != null || query.endDate != null)
+                TallyFilterChip(
+                  label:
+                      'Dates: ${query.startDate != null ? DateFormat('MM/dd').format(query.startDate!) : '...'} - ${query.endDate != null ? DateFormat('MM/dd').format(query.endDate!) : '...'}',
+                  onDeleted: () => ref
+                      .read(receivingQueryProvider.notifier)
+                      .setDateRange(),
+                ),
+            ],
+            onClearAll: () {
+              _searchCtrl.clear();
+              ref.read(receivingQueryProvider.notifier).clearFilters();
+              setState(() {});
+            },
+            clearAllLabel: 'Clear All',
+            clearAllColor: TallyColors.slateMuted,
           ),
-        ],
       ],
     );
   }

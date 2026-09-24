@@ -254,6 +254,164 @@ class DriftReceivingRepository implements ReceivingRepository {
   }
 
   @override
+  Future<Result<Receiving>> update(Receiving receiving) async {
+    try {
+      await _ensureOpen();
+
+      await _database.executor.runCustom('BEGIN TRANSACTION;');
+      try {
+        final existingRows = await _database.executor.runSelect(
+          'SELECT status FROM receivings WHERE id = ? AND store_id = ?;',
+          [receiving.id.value, _storeId.value],
+        );
+
+        if (existingRows.isEmpty) {
+          throw NotFoundError('Receiving ${receiving.id.value} not found.');
+        }
+
+        final existingStatus = ReceivingStatus.fromValue(
+          existingRows.first['status'] as String,
+        );
+
+        if (existingStatus != ReceivingStatus.draft) {
+          throw const DomainError(
+            'Cannot edit a receiving that is already completed or voided.',
+          );
+        }
+
+        final now = DateTime.now().toUtc();
+
+        await _database.executor.runUpdate(
+          '''
+          UPDATE receivings SET
+            reference_number = ?,
+            received_at = ?,
+            supplier = ?,
+            notes = ?,
+            status = ?,
+            total_cost = ?,
+            updated_at = ?
+          WHERE id = ? AND store_id = ?;
+          ''',
+          [
+            receiving.referenceNumber,
+            receiving.receivedAt.toUtc().toIso8601String(),
+            receiving.supplier,
+            receiving.notes,
+            receiving.status.value,
+            receiving.totalCost,
+            now.toIso8601String(),
+            receiving.id.value,
+            _storeId.value,
+          ],
+        );
+
+        // Replace all lines for this receiving
+        await _database.executor.runDelete(
+          'DELETE FROM receiving_lines WHERE receiving_id = ? AND store_id = ?;',
+          [receiving.id.value, _storeId.value],
+        );
+
+        for (final line in receiving.lines) {
+          await _database.executor.runInsert(
+            '''
+            INSERT INTO receiving_lines (
+              id, receiving_id, store_id, item_id, item_name_snapshot,
+              sku_snapshot, unit_snapshot, quantity, unit_cost, line_total,
+              update_item_cost, new_base_selling_price, new_min_selling_price, update_item_price
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            ''',
+            [
+              line.id,
+              receiving.id.value,
+              _storeId.value,
+              line.itemId.value,
+              line.itemNameSnapshot,
+              line.skuSnapshot,
+              line.unitSnapshot,
+              line.quantity,
+              line.unitCost,
+              line.lineTotal,
+              line.updateItemCost ? 1 : 0,
+              line.newBaseSellingPrice,
+              line.newMinSellingPrice,
+              line.updateItemPrice ? 1 : 0,
+            ],
+          );
+        }
+
+        final updatedReceiving = receiving.copyWith(updatedAt: now);
+
+        // If updated directly to completed status, apply inventory mutations
+        if (receiving.status == ReceivingStatus.completed) {
+          await _applyCompletedReceivingMutations(updatedReceiving);
+        }
+
+        await _database.executor.runCustom('COMMIT;');
+        return Success(updatedReceiving);
+      } catch (e) {
+        await _database.executor.runCustom('ROLLBACK;');
+        rethrow;
+      }
+    } catch (e, st) {
+      return Failure(
+        StorageError('Failed to update receiving: $e'),
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> delete(ReceivingId id) async {
+    try {
+      await _ensureOpen();
+
+      await _database.executor.runCustom('BEGIN TRANSACTION;');
+      try {
+        final existingRows = await _database.executor.runSelect(
+          'SELECT status FROM receivings WHERE id = ? AND store_id = ?;',
+          [id.value, _storeId.value],
+        );
+
+        if (existingRows.isEmpty) {
+          throw NotFoundError('Receiving ${id.value} not found.');
+        }
+
+        final existingStatus = ReceivingStatus.fromValue(
+          existingRows.first['status'] as String,
+        );
+
+        if (existingStatus != ReceivingStatus.draft) {
+          throw const DomainError(
+            'Cannot delete a receiving that is completed or voided. Only draft receivings can be deleted.',
+          );
+        }
+
+        await _database.executor.runDelete(
+          'DELETE FROM receiving_lines WHERE receiving_id = ? AND store_id = ?;',
+          [id.value, _storeId.value],
+        );
+
+        await _database.executor.runDelete(
+          'DELETE FROM receivings WHERE id = ? AND store_id = ?;',
+          [id.value, _storeId.value],
+        );
+
+        await _database.executor.runCustom('COMMIT;');
+        return const Success(null);
+      } catch (e) {
+        await _database.executor.runCustom('ROLLBACK;');
+        rethrow;
+      }
+    } catch (e, st) {
+      return Failure(
+        StorageError('Failed to delete draft receiving ${id.value}: $e'),
+        stackTrace: st,
+      );
+    }
+  }
+
+  @override
   Future<Result<Receiving>> complete(ReceivingId id) async {
     try {
       await _ensureOpen();

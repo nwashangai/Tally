@@ -10,12 +10,16 @@ class ReceivingMobileCard extends StatelessWidget {
   final Receiving receiving;
   final VoidCallback onTap;
   final VoidCallback? onVoid;
+  final VoidCallback? onEditDraft;
+  final VoidCallback? onDeleteDraft;
 
   const ReceivingMobileCard({
     super.key,
     required this.receiving,
     required this.onTap,
     this.onVoid,
+    this.onEditDraft,
+    this.onDeleteDraft,
   });
 
   @override
@@ -75,7 +79,60 @@ class ReceivingMobileCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  ReceivingStatusBadge(status: receiving.status),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ReceivingStatusBadge(status: receiving.status),
+                      if (receiving.isDraft &&
+                          (onEditDraft != null ||
+                              onDeleteDraft != null)) ...[
+                        const SizedBox(width: 4),
+                        PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.more_vert,
+                            size: 20,
+                            color: TallyColors.slateMuted,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onSelected: (val) {
+                            if (val == 'edit') onEditDraft?.call();
+                            if (val == 'delete') onDeleteDraft?.call();
+                          },
+                          itemBuilder: (ctx) => [
+                            if (onEditDraft != null)
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit_outlined,
+                                        size: 18, color: TallyColors.primaryNavy),
+                                    SizedBox(width: 8),
+                                    Text('Edit Draft'),
+                                  ],
+                                ),
+                              ),
+                            if (onDeleteDraft != null)
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_outline,
+                                        size: 18, color: TallyColors.stockCritical),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Delete Draft',
+                                      style: TextStyle(
+                                          color: TallyColors.stockCritical),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: TallySpacing.sm),

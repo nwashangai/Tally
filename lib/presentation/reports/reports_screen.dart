@@ -7,6 +7,7 @@ import '../../domain/reports/sales_profit_report.dart';
 import '../design_system/extensions/responsive.dart';
 import '../design_system/tokens/colors.dart';
 import '../design_system/tokens/dimensions.dart';
+import '../design_system/widgets/tally_empty_state.dart';
 
 /// Screen for viewing historical sales and profitability reports.
 ///
@@ -352,44 +353,18 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         borderRadius: BorderRadius.circular(TallyRadii.lg),
         border: Border.all(color: TallyColors.lightBorder),
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(TallySpacing.lg),
-            decoration: const BoxDecoration(
-              color: TallyColors.iceFrost,
-              shape: BoxShape.circle,
+      child: noSalesAtAll
+          ? TallyEmptyState.zeroData(
+              icon: Icons.receipt_long_outlined,
+              title: 'No Sales Recorded Yet',
+              description:
+                  'When items are sold at the point of sale, transactions capture unit costs and selling prices at that exact time.\nHistorical reports will analyze profitability across all past price eras.',
+            )
+          : TallyEmptyState.searchEmpty(
+              title: 'No Items Match Current Filter',
+              description:
+                  'Try adjusting your search query or selecting a different date range above.',
             ),
-            child: const Icon(
-              Icons.receipt_long_outlined,
-              size: 48,
-              color: TallyColors.slateMuted,
-            ),
-          ),
-          const SizedBox(height: TallySpacing.md),
-          Text(
-            noSalesAtAll
-                ? 'No Sales Recorded Yet'
-                : 'No Items Match Current Filter',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: TallyColors.primaryNavy,
-            ),
-          ),
-          const SizedBox(height: TallySpacing.xs),
-          Text(
-            noSalesAtAll
-                ? 'When items are sold at the point of sale, transactions capture unit costs and selling prices at that exact time.\nHistorical reports will analyze profitability across all past price eras.'
-                : 'Try adjusting your search query or selecting a different date range above.',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 13,
-              color: TallyColors.slateMuted,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

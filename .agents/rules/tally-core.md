@@ -25,6 +25,9 @@ Infrastructure (Adapters, Persistence, External Clients)
 ## 2. Agent Operating Principles
 
 - **One Prompt = One Coherent Increment:** Implement single vertical slices rather than wide, incomplete refactors.
+- **Prioritize Reusable Code & Zero Redundancy:**
+  - Before writing new widgets, dialogs, query notifiers, or helper functions, actively inspect the codebase for existing reusable solutions (especially `lib/presentation/design_system/widgets/`, `lib/core/`, and shared domain/application utilities).
+  - When encountering identical or near-identical code patterns across features, extract them into common reusable widgets or services to maintain high consistency and minimize boilerplate.
 - **No Inventions Without ADR:** Do NOT introduce a backend provider, state management package, routing solution, design system, or storage engine without an accepted ADR in `docs/decisions/`.
 - **Quality Gates Mandatory:** Every increment must pass Gates 0 through 6 (`docs/quality-gates.md`).
 - **Immutability by Default:** All domain entities and value objects must be immutable.

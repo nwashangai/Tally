@@ -31,8 +31,10 @@ class _FakeReceivingRepository implements ReceivingRepository {
   }
 
   @override
-  Future<Result<Receiving>> complete(ReceivingId id) async =>
-      Success(receiving);
+  Future<Result<Receiving>> complete(ReceivingId id) async {
+    receiving = receiving.copyWith(status: ReceivingStatus.completed);
+    return Success(receiving);
+  }
 
   @override
   Future<Result<Receiving>> voidReceiving(ReceivingId id,
@@ -64,6 +66,17 @@ class _FakeReceivingRepository implements ReceivingRepository {
         pageSize: 20,
         totalItems: 1,
       ));
+
+  @override
+  Future<Result<Receiving>> update(Receiving r) async {
+    receiving = r;
+    return Success(r);
+  }
+
+  @override
+  Future<Result<void>> delete(ReceivingId id) async {
+    return const Success(null);
+  }
 }
 
 void main() {
@@ -138,4 +151,84 @@ void main() {
     expect(repo.receiving.isVoided, isTrue);
     expect(find.text('This transaction has been voided'), findsOneWidget);
   });
+
+  testWidgets(
+      'renders draft receiving with banner, edit, and delete actions (no direct complete)',
+      (tester) async {
+    final draftReceiving = Receiving(
+      id: const ReceivingId('draft-details-1'),
+      storeId: const StoreId('store-1'),
+      referenceNumber: 'REC-DRAFT-99',
+      receivedAt: DateTime(2026, 9, 21),
+      supplier: 'Unilever Nigeria',
+      status: ReceivingStatus.draft,
+      lines: [
+        ReceivingLine(
+          receivingId: const ReceivingId('draft-details-1'),
+          itemId: const ItemId('milo-500g'),
+          itemNameSnapshot: 'Milo 500g Refill',
+          unitSnapshot: 'tin',
+          quantity: 12,
+          unitCost: 2000,
+        ),
+      ],
+    );
+
+    final repo = _FakeReceivingRepository(draftReceiving);
+
+    await tester.pumpWidget(createSubject(repo, draftReceiving));
+    await tester.pumpAndSettle();
+
+    // Verify draft banner
+    expect(find.text('Draft Receiving'), findsOneWidget);
+    expect(
+      find.text(
+          'Stock has not been adjusted. You can continue editing or delete this draft.'),
+      findsOneWidget,
+    );
+
+    // Verify action buttons: Continue Editing and Delete Draft are present
+    expect(find.text('Continue Editing'), findsWidgets);
+    expect(find.text('Delete Draft'), findsWidgets);
+
+    // Verify Complete Receiving button is NOT present directly (must be done from edit form)
+    expect(find.text('Complete Receiving'), findsNothing);
+
+    // Delete Draft flow
+    final deleteBtn = find.widgetWithText(OutlinedButton, 'Delete Draft');
+    await tester.ensureVisible(deleteBtn);
+    await tester.tap(deleteBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Draft?'), findsOneWidget);
+    expect(find.text('Delete'), findsOneWidget);
+  });
+
+  testWidgets(
+      'renders card layout for line items on mobile without DataTable',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final repo = _FakeReceivingRepository(sampleReceiving);
+
+    await tester.pumpWidget(createSubject(repo, sampleReceiving));
+    await tester.pumpAndSettle();
+
+    // Verify DataTable is NOT rendered on mobile
+    expect(find.byType(DataTable), findsNothing);
+
+    // Verify item details rendered in card layout
+    expect(find.text('Milo 500g Refill'), findsOneWidget);
+    expect(find.text('NES-MILO-500'), findsOneWidget);
+    expect(find.text('Catalog cost updated'), findsOneWidget);
+
+    // Verify no RenderFlex overflow
+    expect(tester.takeException(), isNull);
+  });
 }
+

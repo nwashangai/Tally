@@ -6,7 +6,8 @@ import '../../../domain/receiving/receiving.dart';
 import '../../../domain/receiving/receiving_query.dart';
 import '../../../domain/receiving/receiving_status.dart';
 import '../../design_system/tokens/colors.dart';
-import '../../design_system/tokens/dimensions.dart';
+import '../../design_system/widgets/tally_sortable_header.dart';
+import '../../design_system/widgets/tally_table_container.dart';
 import 'receiving_status_badge.dart';
 
 /// Responsive data table for displaying Receivings on tablet and desktop surfaces.
@@ -14,12 +15,16 @@ class ReceivingDesktopTable extends ConsumerWidget {
   final List<Receiving> receivings;
   final ValueChanged<Receiving> onViewDetails;
   final ValueChanged<Receiving>? onVoid;
+  final ValueChanged<Receiving>? onEditDraft;
+  final ValueChanged<Receiving>? onDeleteDraft;
 
   const ReceivingDesktopTable({
     super.key,
     required this.receivings,
     required this.onViewDetails,
     this.onVoid,
+    this.onEditDraft,
+    this.onDeleteDraft,
   });
 
   @override
@@ -28,98 +33,81 @@ class ReceivingDesktopTable extends ConsumerWidget {
     final queryNotifier = ref.read(receivingQueryProvider.notifier);
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(TallyRadii.md),
-        border: Border.all(color: TallyColors.lightBorder),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(TallyRadii.md),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                child: SingleChildScrollView(
-                  child: DataTable(
-                    headingRowHeight: 44,
-                    dataRowMinHeight: 48,
-                    dataRowMaxHeight: 56,
-                    horizontalMargin: 16,
-                    columnSpacing: 24,
-                    headingRowColor: WidgetStateProperty.all(
-                      TallyColors.iceFrost.withValues(alpha: 0.5),
-                    ),
-                    columns: [
-                      // Reference Column (sortable)
-                      DataColumn(
-                        label: _buildSortableHeader(
-                          label: 'Reference',
-                          field: ReceivingSortField.reference,
-                          currentSort: query.sortBy,
-                          direction: query.sortDirection,
-                          onTap: () => queryNotifier
-                              .setSortField(ReceivingSortField.reference),
-                        ),
-                      ),
-                      // Date Received (sortable)
-                      DataColumn(
-                        label: _buildSortableHeader(
-                          label: 'Date Received',
-                          field: ReceivingSortField.receivedAt,
-                          currentSort: query.sortBy,
-                          direction: query.sortDirection,
-                          onTap: () => queryNotifier
-                              .setSortField(ReceivingSortField.receivedAt),
-                        ),
-                      ),
-                      // Supplier
-                      const DataColumn(
-                        label: Text(
-                          'Supplier',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: TallyColors.slateMuted,
-                          ),
-                        ),
-                      ),
-                      // Items Count
-                      const DataColumn(
-                        label: Text(
-                          'Items',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: TallyColors.slateMuted,
-                          ),
-                        ),
-                      ),
-                      // Total Units
-                      const DataColumn(
-                        label: Text(
-                          'Units Received',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: TallyColors.slateMuted,
-                          ),
-                        ),
-                      ),
-                      // Total Cost (sortable)
-                      DataColumn(
-                        numeric: true,
-                        label: _buildSortableHeader(
-                          label: 'Total Cost',
-                          field: ReceivingSortField.totalCost,
-                          currentSort: query.sortBy,
-                          direction: query.sortDirection,
-                          onTap: () => queryNotifier
-                              .setSortField(ReceivingSortField.totalCost),
-                        ),
-                      ),
+    return TallyTableContainer(
+      child: DataTable(
+        headingRowHeight: 44,
+        dataRowMinHeight: 48,
+        dataRowMaxHeight: 56,
+        horizontalMargin: 16,
+        columnSpacing: 24,
+        headingRowColor: WidgetStateProperty.all(
+          TallyColors.iceFrost.withValues(alpha: 0.5),
+        ),
+        columns: [
+          // Reference Column (sortable)
+          DataColumn(
+            label: TallySortableHeader(
+              label: 'Reference',
+              isSorted: query.sortBy == ReceivingSortField.reference,
+              isAscending: query.sortDirection.isAscending,
+              onTap: () => queryNotifier
+                  .setSortField(ReceivingSortField.reference),
+            ),
+          ),
+          // Date Received (sortable)
+          DataColumn(
+            label: TallySortableHeader(
+              label: 'Date Received',
+              isSorted: query.sortBy == ReceivingSortField.receivedAt,
+              isAscending: query.sortDirection.isAscending,
+              onTap: () => queryNotifier
+                  .setSortField(ReceivingSortField.receivedAt),
+            ),
+          ),
+          // Supplier
+          const DataColumn(
+            label: Text(
+              'Supplier',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: TallyColors.slateMuted,
+              ),
+            ),
+          ),
+          // Items Count
+          const DataColumn(
+            label: Text(
+              'Items',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: TallyColors.slateMuted,
+              ),
+            ),
+          ),
+          // Total Units
+          const DataColumn(
+            label: Text(
+              'Units Received',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: TallyColors.slateMuted,
+              ),
+            ),
+          ),
+          // Total Cost (sortable)
+          DataColumn(
+            numeric: true,
+            label: TallySortableHeader(
+              label: 'Total Cost',
+              isSorted: query.sortBy == ReceivingSortField.totalCost,
+              isAscending: query.sortDirection.isAscending,
+              onTap: () => queryNotifier
+                  .setSortField(ReceivingSortField.totalCost),
+            ),
+          ),
                       // Status
                       const DataColumn(
                         label: Text(
@@ -243,6 +231,34 @@ class ReceivingDesktopTable extends ConsumerWidget {
                                     splashRadius: 18,
                                   ),
                                 ),
+                                if (rec.status == ReceivingStatus.draft) ...[
+                                  if (onEditDraft != null)
+                                    Tooltip(
+                                      message: 'Edit Draft',
+                                      child: IconButton(
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 18,
+                                          color: TallyColors.primaryNavy,
+                                        ),
+                                        onPressed: () => onEditDraft!(rec),
+                                        splashRadius: 18,
+                                      ),
+                                    ),
+                                  if (onDeleteDraft != null)
+                                    Tooltip(
+                                      message: 'Delete Draft',
+                                      child: IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          size: 18,
+                                          color: TallyColors.stockCritical,
+                                        ),
+                                        onPressed: () => onDeleteDraft!(rec),
+                                        splashRadius: 18,
+                                      ),
+                                    ),
+                                ],
                                 if (rec.status == ReceivingStatus.completed &&
                                     onVoid != null)
                                   Tooltip(
@@ -264,52 +280,6 @@ class ReceivingDesktopTable extends ConsumerWidget {
                       );
                     }).toList(),
                   ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSortableHeader({
-    required String label,
-    required ReceivingSortField field,
-    required ReceivingSortField currentSort,
-    required ReceivingSortDirection direction,
-    required VoidCallback onTap,
-  }) {
-    final isSorted = currentSort == field;
-
-    return InkWell(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color:
-                  isSorted ? TallyColors.primaryNavy : TallyColors.slateMuted,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(
-            isSorted
-                ? (direction.isAscending
-                    ? Icons.arrow_upward
-                    : Icons.arrow_downward)
-                : Icons.unfold_more,
-            size: 14,
-            color: isSorted
-                ? TallyColors.primaryNavy
-                : TallyColors.slateMuted.withValues(alpha: 0.5),
-          ),
-        ],
-      ),
     );
   }
 }

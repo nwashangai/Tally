@@ -55,4 +55,20 @@ class ReceivingListNotifier
     }
     return result;
   }
+
+  Future<Result<void>> deleteDraft(ReceivingId id) async {
+    final result = await _repository.delete(id);
+    if (result.isSuccess) {
+      await refresh();
+    }
+    return result;
+  }
+
+  Future<Result<Receiving>> completeDraft(ReceivingId id) async {
+    final result = await _repository.complete(id);
+    if (result.isSuccess) {
+      await refresh();
+    }
+    return result;
+  }
 }

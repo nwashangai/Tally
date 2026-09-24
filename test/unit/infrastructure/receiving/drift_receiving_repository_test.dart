@@ -449,5 +449,125 @@ void main() {
           await receivingRepo.query(const ReceivingQuery(search: 'Unilever'));
       expect(res3.valueOrNull!.items.length, 1);
     });
+
+    test('update() updates draft receiving, replaces lines, and enforces draft status',
+        () async {
+      final item1 = createTestItem(id: 'upd-item-1', name: 'Original Item');
+      final item2 = createTestItem(id: 'upd-item-2', name: 'Added Item');
+      await itemRepo.create(item1);
+      await itemRepo.create(item2);
+
+      final draft = Receiving(
+        id: const ReceivingId('rec-draft-upd'),
+        storeId: storeId,
+        referenceNumber: 'REC-000088',
+        supplier: 'Initial Supplier',
+        status: ReceivingStatus.draft,
+        lines: [
+          ReceivingLine(
+            receivingId: const ReceivingId('rec-draft-upd'),
+            itemId: item1.id,
+            itemNameSnapshot: item1.name,
+            unitSnapshot: 'bottle',
+            quantity: 5,
+            unitCost: 100,
+          ),
+        ],
+      );
+      await receivingRepo.create(draft);
+
+      // Now update the draft with changed supplier and extra item
+      final updatedDraft = draft.copyWith(
+        supplier: 'Updated Supplier Ltd',
+        notes: 'Updated notes',
+        lines: [
+          ReceivingLine(
+            receivingId: draft.id,
+            itemId: item1.id,
+            itemNameSnapshot: item1.name,
+            unitSnapshot: 'bottle',
+            quantity: 10,
+            unitCost: 120,
+          ),
+          ReceivingLine(
+            receivingId: draft.id,
+            itemId: item2.id,
+            itemNameSnapshot: item2.name,
+            unitSnapshot: 'bottle',
+            quantity: 2,
+            unitCost: 300,
+          ),
+        ],
+      );
+
+      final updRes = await receivingRepo.update(updatedDraft);
+      expect(updRes.isSuccess, isTrue);
+
+      final fetched = await receivingRepo.getById(draft.id);
+      expect(fetched.valueOrNull!.supplier, 'Updated Supplier Ltd');
+      expect(fetched.valueOrNull!.notes, 'Updated notes');
+      expect(fetched.valueOrNull!.lines.length, 2);
+      expect(fetched.valueOrNull!.lines[0].quantity, 10);
+      expect(fetched.valueOrNull!.lines[1].quantity, 2);
+      expect(fetched.valueOrNull!.totalCost, 10 * 120 + 2 * 300);
+
+      // Complete it and ensure update is subsequently rejected
+      await receivingRepo.complete(draft.id);
+      final rejRes = await receivingRepo.update(updatedDraft);
+      expect(rejRes.isFailure, isTrue);
+    });
+
+    test('delete() deletes draft receiving and its lines, rejects completed/voided',
+        () async {
+      final item = createTestItem(id: 'del-item', name: 'Del Item');
+      await itemRepo.create(item);
+
+      final draft = Receiving(
+        id: const ReceivingId('rec-draft-del'),
+        storeId: storeId,
+        referenceNumber: 'REC-000099',
+        supplier: 'Temp Supplier',
+        status: ReceivingStatus.draft,
+        lines: [
+          ReceivingLine(
+            receivingId: const ReceivingId('rec-draft-del'),
+            itemId: item.id,
+            itemNameSnapshot: item.name,
+            unitSnapshot: 'bottle',
+            quantity: 5,
+            unitCost: 100,
+          ),
+        ],
+      );
+      await receivingRepo.create(draft);
+
+      final delRes = await receivingRepo.delete(draft.id);
+      expect(delRes.isSuccess, isTrue);
+
+      final fetched = await receivingRepo.getById(draft.id);
+      expect(fetched.valueOrNull, isNull);
+
+      // Verify cannot delete a completed receiving
+      final completed = Receiving(
+        id: const ReceivingId('rec-comp-del'),
+        storeId: storeId,
+        referenceNumber: 'REC-000100',
+        status: ReceivingStatus.completed,
+        lines: [
+          ReceivingLine(
+            receivingId: const ReceivingId('rec-comp-del'),
+            itemId: item.id,
+            itemNameSnapshot: item.name,
+            unitSnapshot: 'bottle',
+            quantity: 1,
+            unitCost: 50,
+          ),
+        ],
+      );
+      await receivingRepo.create(completed);
+
+      final compDelRes = await receivingRepo.delete(completed.id);
+      expect(compDelRes.isFailure, isTrue);
+    });
   });
 }

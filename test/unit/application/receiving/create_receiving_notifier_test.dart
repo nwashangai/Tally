@@ -64,6 +64,23 @@ class _FakeReceivingRepository implements ReceivingRepository {
     if (idx != -1) return Success(receivings[idx]);
     throw UnimplementedError();
   }
+
+  @override
+  Future<Result<Receiving>> update(Receiving receiving) async {
+    final idx = receivings.indexWhere((r) => r.id == receiving.id);
+    if (idx != -1) {
+      receivings[idx] = receiving;
+    } else {
+      receivings.add(receiving);
+    }
+    return Success(receiving);
+  }
+
+  @override
+  Future<Result<void>> delete(ReceivingId id) async {
+    receivings.removeWhere((r) => r.id == id);
+    return const Success(null);
+  }
 }
 
 void main() {
@@ -163,9 +180,10 @@ void main() {
       notifier.addItem(testItem, quantity: 2, unitCost: 500);
       final lineId = notifier.state.lines.first.id;
 
-      expect(notifier.state.lines.first.updateItemCost, isFalse);
-      notifier.toggleUpdateItemCost(lineId, true);
+      // Defaults to true as requested
       expect(notifier.state.lines.first.updateItemCost, isTrue);
+      notifier.toggleUpdateItemCost(lineId, false);
+      expect(notifier.state.lines.first.updateItemCost, isFalse);
     });
 
     test('removing line item empties the list', () {

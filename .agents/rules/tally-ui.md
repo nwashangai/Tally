@@ -48,3 +48,17 @@ All UI elements, themes, and illustrations must adhere to the accepted palette:
   - Critical / Negative Stock (Danger): `#EF4444`
   - Active Tally Session (Accent): `#38BDF8`
 
+## 7. Design System First & Reusable Component Hierarchy
+
+- **Design System First:** Always reuse standard components from `lib/presentation/design_system/widgets/` instead of implementing ad-hoc duplicates:
+  - `TallySearchField` for search inputs
+  - `TallyTableContainer` for table wrappers and list headers
+  - `TallyPaginationBar` for pagination
+  - `TallyEmptyState` for empty views
+  - `TallyErrorState` for error handling
+  - `TallyFilterChipsBar` for active filter chips
+  - `TallySortableHeader` for table sort headers
+- **Identify Redundancies:** Before writing UI for new screens, scan existing screens for identical patterns (e.g., mobile card layouts, status badges, confirmation dialogs) and reuse or extract them into reusable widgets.
+- **Mobile Table Avoidance:** Always provide a responsive mobile card fallback (`context.isPhone`) rather than rendering horizontal-scrolling data tables on phone viewports.
+
+

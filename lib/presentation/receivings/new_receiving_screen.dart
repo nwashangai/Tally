@@ -8,6 +8,7 @@ import '../../core/error/app_error.dart';
 import '../../domain/item/item.dart';
 import '../../domain/item/item_query.dart';
 import '../../domain/item/item_repository.dart';
+import '../../domain/receiving/receiving.dart';
 import '../../domain/receiving/receiving_line.dart';
 import '../design_system/extensions/responsive.dart';
 import '../design_system/tokens/colors.dart';
@@ -17,7 +18,9 @@ import '../items/widgets/barcode_scanner_sheet.dart';
 
 /// Screen for creating and receiving stock into inventory from suppliers.
 class NewReceivingScreen extends ConsumerStatefulWidget {
-  const NewReceivingScreen({super.key});
+  final Receiving? initialDraft;
+
+  const NewReceivingScreen({super.key, this.initialDraft});
 
   @override
   ConsumerState<NewReceivingScreen> createState() => _NewReceivingScreenState();
@@ -33,9 +36,25 @@ class _NewReceivingScreenState extends ConsumerState<NewReceivingScreen> {
   void initState() {
     super.initState();
     final state = ref.read(createReceivingProvider);
-    _refCtrl = TextEditingController(text: state.referenceNumber);
-    _supplierCtrl = TextEditingController(text: state.supplier);
-    _notesCtrl = TextEditingController(text: state.notes);
+    _refCtrl = TextEditingController(
+      text: widget.initialDraft?.referenceNumber ?? state.referenceNumber,
+    );
+    _supplierCtrl = TextEditingController(
+      text: widget.initialDraft?.supplier ?? state.supplier,
+    );
+    _notesCtrl = TextEditingController(
+      text: widget.initialDraft?.notes ?? state.notes,
+    );
+
+    if (widget.initialDraft != null) {
+      Future.microtask(() {
+        if (mounted) {
+          ref
+              .read(createReceivingProvider.notifier)
+              .initializeFromDraft(widget.initialDraft!);
+        }
+      });
+    }
   }
 
   @override
@@ -71,10 +90,10 @@ class _NewReceivingScreenState extends ConsumerState<NewReceivingScreen> {
             selectedItem,
             quantity: 1,
             unitCost: selectedItem.pricing.costPrice,
-            updateItemCost: false,
+            updateItemCost: true,
             newBaseSellingPrice: selectedItem.pricing.baseSellingPrice,
             newMinSellingPrice: selectedItem.pricing.minSellingPrice,
-            updateItemPrice: false,
+            updateItemPrice: true,
           );
     }
   }
@@ -116,10 +135,10 @@ class _NewReceivingScreenState extends ConsumerState<NewReceivingScreen> {
             matchedItem,
             quantity: 1,
             unitCost: matchedItem.pricing.costPrice,
-            updateItemCost: false,
+            updateItemCost: true,
             newBaseSellingPrice: matchedItem.pricing.baseSellingPrice,
             newMinSellingPrice: matchedItem.pricing.minSellingPrice,
-            updateItemPrice: false,
+            updateItemPrice: true,
           );
 
       if (!mounted) return;
@@ -161,10 +180,10 @@ class _NewReceivingScreenState extends ConsumerState<NewReceivingScreen> {
               selected,
               quantity: 1,
               unitCost: selected.pricing.costPrice,
-              updateItemCost: false,
+              updateItemCost: true,
               newBaseSellingPrice: selected.pricing.baseSellingPrice,
               newMinSellingPrice: selected.pricing.minSellingPrice,
-              updateItemPrice: false,
+              updateItemPrice: true,
             );
       }
     } else {
@@ -360,6 +379,84 @@ class _NewReceivingScreenState extends ConsumerState<NewReceivingScreen> {
     );
   }
 
+  Future<void> _confirmDeleteDraft() async {
+    final draft = widget.initialDraft;
+    if (draft == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(TallyRadii.lg),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline, color: TallyColors.stockCritical),
+            SizedBox(width: TallySpacing.sm),
+            Text(
+              'Delete Draft?',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: TallyColors.primaryNavy,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete draft receiving ${draft.referenceNumber}? This action cannot be undone.',
+          style: const TextStyle(
+            fontSize: 14,
+            color: TallyColors.slateMuted,
+          ),
+        ),
+        actions: [
+          TallyCancelButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TallyColors.stockCritical,
+              foregroundColor: Colors.white,
+              shape: const StadiumBorder(),
+              padding: const EdgeInsets.symmetric(
+                horizontal: TallySpacing.xl,
+                vertical: TallySpacing.md,
+              ),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final res = await ref
+          .read(receivingListProvider.notifier)
+          .deleteDraft(draft.id);
+      if (!mounted) return;
+      if (res.isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Draft receiving ${draft.referenceNumber} deleted.'),
+            backgroundColor: TallyColors.varianceZeroLight,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to delete draft: ${res.errorOrNull?.toString() ?? "Unknown error"}',
+            ),
+            backgroundColor: TallyColors.stockCritical,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(createReceivingProvider);
@@ -374,9 +471,9 @@ class _NewReceivingScreenState extends ConsumerState<NewReceivingScreen> {
     return Scaffold(
       backgroundColor: TallyColors.lightCanvas,
       appBar: AppBar(
-        title: const Text(
-          'New Receiving',
-          style: TextStyle(
+        title: Text(
+          widget.initialDraft != null ? 'Edit Draft Receiving' : 'New Receiving',
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: TallyColors.primaryNavy,
@@ -385,6 +482,17 @@ class _NewReceivingScreenState extends ConsumerState<NewReceivingScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: TallyColors.primaryNavy),
+        actions: [
+          if (widget.initialDraft != null)
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline,
+                color: TallyColors.stockCritical,
+              ),
+              tooltip: 'Delete Draft',
+              onPressed: _confirmDeleteDraft,
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(color: TallyColors.lightBorder, height: 1),

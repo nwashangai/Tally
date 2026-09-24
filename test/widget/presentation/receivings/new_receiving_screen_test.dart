@@ -13,9 +13,11 @@ import 'package:tally/domain/item/item_repository.dart';
 import 'package:tally/domain/item/item_unit.dart';
 import 'package:tally/domain/receiving/receiving.dart';
 import 'package:tally/domain/receiving/receiving_id.dart';
+import 'package:tally/domain/receiving/receiving_line.dart';
 import 'package:tally/domain/receiving/receiving_line_history.dart';
 import 'package:tally/domain/receiving/receiving_query.dart';
 import 'package:tally/domain/receiving/receiving_repository.dart';
+import 'package:tally/domain/receiving/receiving_status.dart';
 import 'package:tally/domain/store/store_id.dart';
 import 'package:tally/presentation/receivings/new_receiving_screen.dart';
 
@@ -61,6 +63,23 @@ class _FakeReceivingRepository implements ReceivingRepository {
   Future<Result<Receiving>> voidReceiving(ReceivingId id,
           {String? reason}) async =>
       Success(receivings.firstWhere((r) => r.id == id));
+
+  @override
+  Future<Result<Receiving>> update(Receiving receiving) async {
+    final idx = receivings.indexWhere((r) => r.id == receiving.id);
+    if (idx != -1) {
+      receivings[idx] = receiving;
+    } else {
+      receivings.add(receiving);
+    }
+    return Success(receiving);
+  }
+
+  @override
+  Future<Result<void>> delete(ReceivingId id) async {
+    receivings.removeWhere((r) => r.id == id);
+    return const Success(null);
+  }
 }
 
 class _FakeItemRepository implements ItemRepository {
@@ -221,6 +240,145 @@ void main() {
     await tester.tap(find.byIcon(Icons.close));
     await tester.pumpAndSettle();
   });
+
+  testWidgets('editing existing draft pre-fills data and allows updating',
+      (tester) async {
+    final draftReceiving = Receiving(
+      id: const ReceivingId('draft-101'),
+      storeId: const StoreId('store-1'),
+      referenceNumber: 'REC-DRAFT-01',
+      receivedAt: DateTime(2026, 9, 20),
+      supplier: 'Cadbury Nigeria',
+      notes: 'Draft note test',
+      status: ReceivingStatus.draft,
+      lines: [
+        ReceivingLine(
+          receivingId: const ReceivingId('draft-101'),
+          itemId: const ItemId('item-1'),
+          itemNameSnapshot: 'Maltina 330ml Can',
+          unitSnapshot: 'can',
+          quantity: 10,
+          unitCost: 300,
+        ),
+      ],
+    );
+
+    final recRepo = _FakeReceivingRepository();
+    recRepo.receivings.add(draftReceiving);
+    final itemRepo = _FakeItemRepository([testItem]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receivingRepositoryProvider.overrideWithValue(recRepo),
+          itemRepositoryProvider.overrideWithValue(itemRepo),
+        ],
+        child: MaterialApp(
+          home: NewReceivingScreen(initialDraft: draftReceiving),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify Title and prefilled fields
+    expect(find.text('Edit Draft Receiving'), findsOneWidget);
+    expect(find.text('REC-DRAFT-01'), findsOneWidget);
+    expect(find.text('Cadbury Nigeria'), findsOneWidget);
+    expect(find.text('Draft note test'), findsOneWidget);
+    expect(find.text('Maltina 330ml Can'), findsOneWidget);
+
+    // Verify delete draft button exists in AppBar
+    expect(find.byTooltip('Delete Draft'), findsOneWidget);
+
+    // Save Draft
+    await tester.tap(find.text('Save Draft'));
+    await tester.pumpAndSettle();
+
+    expect(recRepo.receivings.length, 1);
+    expect(recRepo.receivings.first.referenceNumber, 'REC-DRAFT-01');
+  });
+
+  testWidgets('deleting draft from AppBar removes draft', (tester) async {
+    final draftReceiving = Receiving(
+      id: const ReceivingId('draft-102'),
+      storeId: const StoreId('store-1'),
+      referenceNumber: 'REC-DRAFT-02',
+      receivedAt: DateTime(2026, 9, 20),
+      supplier: 'Cadbury Nigeria',
+      status: ReceivingStatus.draft,
+      lines: [
+        ReceivingLine(
+          receivingId: const ReceivingId('draft-102'),
+          itemId: const ItemId('item-1'),
+          itemNameSnapshot: 'Maltina 330ml Can',
+          unitSnapshot: 'can',
+          quantity: 5,
+          unitCost: 300,
+        ),
+      ],
+    );
+
+    final recRepo = _FakeReceivingRepository();
+    recRepo.receivings.add(draftReceiving);
+    final itemRepo = _FakeItemRepository([testItem]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          receivingRepositoryProvider.overrideWithValue(recRepo),
+          itemRepositoryProvider.overrideWithValue(itemRepo),
+        ],
+        child: MaterialApp(
+          home: NewReceivingScreen(initialDraft: draftReceiving),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Delete Draft'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Draft?'), findsOneWidget);
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(recRepo.receivings.isEmpty, isTrue);
+  });
+
+  testWidgets(
+      'adding item pre-fills current prices and defaults update catalog checkboxes to checked',
+      (tester) async {
+    final recRepo = _FakeReceivingRepository();
+    final itemRepo = _FakeItemRepository([testItem]);
+
+    await tester.pumpWidget(createSubject(recRepo, itemRepo));
+    await tester.pumpAndSettle();
+
+    // Open item picker dialog
+    await tester.tap(find.text('Add Product'));
+    await tester.pumpAndSettle();
+
+    // Select the item from the dialog
+    await tester.tap(find.text('Basmati Rice 5kg'));
+    await tester.pumpAndSettle();
+
+    // Verify item is added to line items
+    expect(find.text('Basmati Rice 5kg'), findsOneWidget);
+
+    // Verify unit cost is prefilled with item's costPrice (6500)
+    expect(find.text('6500'), findsOneWidget);
+
+    // Verify selling price is prefilled with item's baseSellingPrice (8500)
+    expect(find.text('8500'), findsOneWidget);
+
+    // Verify both checkboxes are present and checked by default
+    final checkboxes = tester.widgetList<Checkbox>(find.byType(Checkbox));
+    expect(checkboxes.length, 2);
+    for (final cb in checkboxes) {
+      expect(cb.value, isTrue);
+    }
+  });
 }
+
 
 

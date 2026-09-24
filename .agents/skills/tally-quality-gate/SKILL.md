@@ -14,14 +14,16 @@ Use this skill before finalizing any task, prompt, or PR to guarantee all 7 qual
 - [ ] Requirements match `docs/product-spec.md`.
 - [ ] Acceptance criteria are met without feature creep.
 
-### 2. Gate 1 — Architecture
+### 2. Gate 1 — Architecture & Reusability
 - [ ] Domain logic has zero dependencies on UI, Flutter, or infrastructure SDKs.
 - [ ] Serverless trust boundaries respected (client has no service secrets).
+- [ ] **Reusability Prioritization:** Audited codebase to ensure common logic and UI widgets (tables, pagination, search, empty/error states) are reused from `lib/presentation/design_system/widgets/` rather than re-implemented ad-hoc.
 - [ ] An ADR exists in `docs/decisions/` for any material architectural choice.
 
 ### 3. Gate 2 — UI/UX
-- [ ] Phone layout verified.
+- [ ] Phone layout verified with responsive mobile card list fallback (no overflowing or awkward horizontal data tables on phones).
 - [ ] Tablet/iPad layout verified.
+- [ ] Reused standard design system components (`TallySearchField`, `TallyTableContainer`, `TallyPaginationBar`, `TallyEmptyState`, `TallyErrorState`, `TallyFilterChipsBar`, `TallySortableHeader`).
 - [ ] All 5 states implemented (empty, loading, populated, error, offline).
 - [ ] Touch targets $\ge 48\times48$ dp.
 - [ ] No ads placed in active tallying screens.
@@ -33,13 +35,14 @@ Run these commands sequentially:
 dart format --output=none --set-exit-if-changed .
 
 # 2. Static analysis
-flutter analyze
+flutter analyze # or dart analyze .
 
 # 3. Unit and widget tests
 flutter test
 ```
 - [ ] Zero linter warnings or errors.
-- [ ] All tests pass cleanly.
+- [ ] All unit and widget tests pass cleanly.
+- [ ] No duplicated boilerplate or redundant widget implementations.
 
 ### 5. Gate 4 — Security
 - [ ] No secrets or service role keys committed.

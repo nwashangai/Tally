@@ -7,6 +7,8 @@ import '../../../domain/item/item_column.dart';
 import '../../../domain/item/item_query.dart';
 import '../../design_system/tokens/colors.dart';
 import '../../design_system/tokens/dimensions.dart';
+import '../../design_system/widgets/tally_sortable_header.dart';
+import '../../design_system/widgets/tally_table_container.dart';
 
 /// Full-featured data table for desktop and tablet viewports.
 class ItemDesktopTable extends ConsumerWidget {
@@ -41,88 +43,51 @@ class ItemDesktopTable extends ConsumerWidget {
 
     final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(TallyRadii.md),
-        border: Border.all(color: TallyColors.lightBorder),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(TallyRadii.md),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SingleChildScrollView(
-            child: DataTable(
-              headingRowHeight: 44,
-              dataRowMinHeight: 48,
-              dataRowMaxHeight: 52,
-              horizontalMargin: 16,
-              columnSpacing: 24,
-              headingRowColor: WidgetStateProperty.all(
-                TallyColors.iceFrost.withValues(alpha: 0.5),
+    return TallyTableContainer(
+      child: DataTable(
+        headingRowHeight: 44,
+        dataRowMinHeight: 48,
+        dataRowMaxHeight: 52,
+        horizontalMargin: 16,
+        columnSpacing: 24,
+        headingRowColor: WidgetStateProperty.all(
+          TallyColors.iceFrost.withValues(alpha: 0.5),
+        ),
+        columns: [
+          // Selection Checkbox Column
+          DataColumn(
+            label: SizedBox(
+              width: 24,
+              height: 24,
+              child: Checkbox(
+                value: allVisibleSelected,
+                tristate: selectedIds.isNotEmpty && !allVisibleSelected,
+                onChanged: (_) =>
+                    selectionNotifier.toggleAllVisible(items),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              columns: [
-                // Selection Checkbox Column
-                DataColumn(
-                  label: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: Checkbox(
-                      value: allVisibleSelected,
-                      tristate: selectedIds.isNotEmpty && !allVisibleSelected,
-                      onChanged: (_) =>
-                          selectionNotifier.toggleAllVisible(items),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-                ),
+            ),
+          ),
 
-                // Dynamic Visible Columns
-                ...visibleColumns.map((col) {
-                  final sortField = _sortFieldFor(col);
-                  final isSorted =
-                      sortField != null && query.sort.field == sortField;
+          // Dynamic Visible Columns
+          ...visibleColumns.map((col) {
+            final sortField = _sortFieldFor(col);
+            final isSorted =
+                sortField != null && query.sort.field == sortField;
 
-                  return DataColumn(
-                    label: InkWell(
-                      onTap: sortField != null
-                          ? () => queryNotifier.setSortField(sortField)
-                          : null,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            col.label,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: isSorted
-                                  ? TallyColors.primaryNavy
-                                  : TallyColors.slateMuted,
-                            ),
-                          ),
-                          if (sortField != null) ...[
-                            const SizedBox(width: 4),
-                            Icon(
-                              isSorted
-                                  ? (query.sort.order == SortOrder.ascending
-                                      ? Icons.arrow_upward
-                                      : Icons.arrow_downward)
-                                  : Icons.unfold_more,
-                              size: 14,
-                              color: isSorted
-                                  ? TallyColors.primaryNavy
-                                  : TallyColors.slateMuted
-                                      .withValues(alpha: 0.5),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                }),
+            return DataColumn(
+              label: TallySortableHeader(
+                label: col.label,
+                isSorted: isSorted,
+                isAscending: query.sort.order == SortOrder.ascending,
+                onTap: sortField != null
+                    ? () => queryNotifier.setSortField(sortField)
+                    : null,
+              ),
+            );
+          }),
 
-                // Actions Column
+          // Actions Column
                 const DataColumn(
                   label: Text(
                     'Actions',
@@ -234,9 +199,6 @@ class ItemDesktopTable extends ConsumerWidget {
                 );
               }).toList(),
             ),
-          ),
-        ),
-      ),
     );
   }
 

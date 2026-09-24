@@ -63,6 +63,23 @@ class _FakeReceivingRepository implements ReceivingRepository {
   @override
   Future<Result<String>> getNextReferenceNumber() async =>
       const Success('REC-000001');
+
+  @override
+  Future<Result<Receiving>> update(Receiving receiving) async {
+    final idx = receivings.indexWhere((r) => r.id == receiving.id);
+    if (idx != -1) {
+      receivings[idx] = receiving;
+    } else {
+      receivings.add(receiving);
+    }
+    return Success(receiving);
+  }
+
+  @override
+  Future<Result<void>> delete(ReceivingId id) async {
+    receivings.removeWhere((r) => r.id == id);
+    return const Success(null);
+  }
 }
 
 void main() {

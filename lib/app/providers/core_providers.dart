@@ -452,6 +452,14 @@ class _FallbackReceivingRepository implements ReceivingRepository {
       const Failure(StorageError('No active store selected.'));
 
   @override
+  Future<Result<Receiving>> update(Receiving receiving) async =>
+      const Failure(StorageError('No active store selected.'));
+
+  @override
+  Future<Result<void>> delete(ReceivingId id) async =>
+      const Failure(StorageError('No active store selected.'));
+
+  @override
   Future<Result<String>> getNextReferenceNumber() async =>
       const Success('REC-000001');
 

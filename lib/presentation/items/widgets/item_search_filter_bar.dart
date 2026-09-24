@@ -6,6 +6,8 @@ import '../../../domain/item/item_query.dart';
 import '../../design_system/extensions/responsive.dart';
 import '../../design_system/tokens/colors.dart';
 import '../../design_system/tokens/dimensions.dart';
+import '../../design_system/widgets/tally_filter_chips_bar.dart';
+import '../../design_system/widgets/tally_search_field.dart';
 import 'item_column_dialog.dart';
 import 'item_export_dialog.dart';
 import 'item_filter_sheet.dart';
@@ -145,87 +147,30 @@ class _ItemSearchFilterBarState extends ConsumerState<ItemSearchFilterBar> {
               children: [
                 // 1. Search Bar (Takes full row when focused on mobile)
                 Expanded(
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(TallyRadii.md),
-                      border: Border.all(
-                        color: _isSearchFocused
-                            ? TallyColors.primaryNavy
-                            : TallyColors.lightBorder,
-                        width: _isSearchFocused ? 1.5 : 1.0,
-                      ),
-                    ),
-                    child: TextField(
-                      key: const Key('item_search_field'),
-                      controller: _searchCtrl,
-                      focusNode: _searchFocusNode,
-                      onChanged: (text) {
-                        setState(() {});
-                        _onSearchChanged(text);
-                      },
-                      decoration: InputDecoration(
-                        hintText: isPhone
-                            ? 'Search items...'
-                            : 'Search by item name, SKU, or barcode...',
-                        hintStyle: const TextStyle(
-                          fontSize: 13,
-                          color: TallyColors.slateMuted,
-                        ),
-                        prefixIcon: Icon(
-                          Icons.search,
-                          size: 20,
-                          color: _isSearchFocused
-                              ? TallyColors.primaryNavy
-                              : TallyColors.slateMuted,
-                        ),
-                        suffixIcon: _searchCtrl.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  _searchCtrl.clear();
-                                  ref
-                                      .read(itemQueryProvider.notifier)
-                                      .setSearch('');
-                                  setState(() {});
-                                },
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 10,
-                          horizontal: 12,
-                        ),
-                      ),
-                    ),
+                  child: TallySearchField(
+                    fieldKey: const Key('item_search_field'),
+                    cancelButtonKey: const Key('item_search_cancel_button'),
+                    controller: _searchCtrl,
+                    focusNode: _searchFocusNode,
+                    isFocused: _isSearchFocused,
+                    showCancelButton: showExpandedSearch,
+                    hintText: isPhone
+                        ? 'Search items...'
+                        : 'Search by item name, SKU, or barcode...',
+                    onChanged: (text) {
+                      setState(() {});
+                      _onSearchChanged(text);
+                    },
+                    onClear: () {
+                      _searchCtrl.clear();
+                      ref.read(itemQueryProvider.notifier).setSearch('');
+                      setState(() {});
+                    },
+                    onCancel: () => _searchFocusNode.unfocus(),
                   ),
                 ),
 
-                // Mobile focused state: show Cancel button to unfocus
-                if (showExpandedSearch) ...[
-                  const SizedBox(width: TallySpacing.xs),
-                  TextButton(
-                    key: const Key('item_search_cancel_button'),
-                    onPressed: () {
-                      _searchFocusNode.unfocus();
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: TallyColors.primaryNavy,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: TallySpacing.sm,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ] else ...[
+                if (!showExpandedSearch) ...[
                   const SizedBox(width: TallySpacing.sm),
 
                   // 2. Filters Button
@@ -369,88 +314,65 @@ class _ItemSearchFilterBarState extends ConsumerState<ItemSearchFilterBar> {
             ),
 
             // Active Filter Chips Row
-            if (activeFilterCount > 0 || query.search.isNotEmpty) ...[
-              const SizedBox(height: TallySpacing.xs),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    if (query.search.isNotEmpty) ...[
-                      InputChip(
-                        label: Text('Search: "${query.search}"'),
-                        onDeleted: () {
-                          _searchCtrl.clear();
-                          ref.read(itemQueryProvider.notifier).setSearch('');
-                        },
-                        deleteIconColor: TallyColors.slateMuted,
-                      ),
-                      const SizedBox(width: TallySpacing.xs),
-                    ],
-                    if (filter.categoryId != null) ...[
-                      InputChip(
-                        label: Text('Category: ${filter.categoryId}'),
-                        onDeleted: () {
-                          ref.read(itemQueryProvider.notifier).updateFilter(
-                              (ItemFilter f) =>
-                                  f.copyWith(clearCategory: true));
-                        },
-                      ),
-                      const SizedBox(width: TallySpacing.xs),
-                    ],
-                    if (filter.stockFilter != StockFilter.all) ...[
-                      InputChip(
-                        label: Text(filter.stockFilter.label),
-                        onDeleted: () {
-                          ref.read(itemQueryProvider.notifier).updateFilter(
-                              (ItemFilter f) =>
-                                  f.copyWith(stockFilter: StockFilter.all));
-                        },
-                      ),
-                      const SizedBox(width: TallySpacing.xs),
-                    ],
-                    if (filter.statusFilter != StatusFilter.active) ...[
-                      InputChip(
-                        label: Text(filter.statusFilter.label),
-                        onDeleted: () {
-                          ref.read(itemQueryProvider.notifier).updateFilter(
-                              (ItemFilter f) => f.copyWith(
-                                  statusFilter: StatusFilter.active));
-                        },
-                      ),
-                      const SizedBox(width: TallySpacing.xs),
-                    ],
-                    if (filter.minSellingPrice != null ||
-                        filter.maxSellingPrice != null) ...[
-                      InputChip(
-                        label: Text(
-                          'Price: ₦${filter.minSellingPrice ?? 0} - ₦${filter.maxSellingPrice ?? '∞'}',
-                        ),
-                        onDeleted: () {
-                          ref.read(itemQueryProvider.notifier).updateFilter(
-                                (ItemFilter f) => f.copyWith(
-                                  clearMinSellingPrice: true,
-                                  clearMaxSellingPrice: true,
-                                ),
-                              );
-                        },
-                      ),
-                      const SizedBox(width: TallySpacing.xs),
-                    ],
-                    TextButton(
-                      onPressed: () {
+            if (activeFilterCount > 0 || query.search.isNotEmpty)
+              TallyFilterChipsBar(
+                chips: [
+                  if (query.search.isNotEmpty)
+                    TallyFilterChip(
+                      label: 'Search: "${query.search}"',
+                      onDeleted: () {
                         _searchCtrl.clear();
-                        ref.read(itemQueryProvider.notifier).reset();
+                        ref.read(itemQueryProvider.notifier).setSearch('');
                       },
-                      child: const Text(
-                        'Clear all',
-                        style: TextStyle(
-                            fontSize: 12, color: TallyColors.stockCritical),
-                      ),
                     ),
-                  ],
-                ),
+                  if (filter.categoryId != null)
+                    TallyFilterChip(
+                      label: 'Category: ${filter.categoryId}',
+                      onDeleted: () {
+                        ref.read(itemQueryProvider.notifier).updateFilter(
+                            (ItemFilter f) => f.copyWith(clearCategory: true));
+                      },
+                    ),
+                  if (filter.stockFilter != StockFilter.all)
+                    TallyFilterChip(
+                      label: filter.stockFilter.label,
+                      onDeleted: () {
+                        ref.read(itemQueryProvider.notifier).updateFilter(
+                            (ItemFilter f) =>
+                                f.copyWith(stockFilter: StockFilter.all));
+                      },
+                    ),
+                  if (filter.statusFilter != StatusFilter.active)
+                    TallyFilterChip(
+                      label: filter.statusFilter.label,
+                      onDeleted: () {
+                        ref.read(itemQueryProvider.notifier).updateFilter(
+                            (ItemFilter f) => f.copyWith(
+                                statusFilter: StatusFilter.active));
+                      },
+                    ),
+                  if (filter.minSellingPrice != null ||
+                      filter.maxSellingPrice != null)
+                    TallyFilterChip(
+                      label:
+                          'Price: ₦${filter.minSellingPrice ?? 0} - ₦${filter.maxSellingPrice ?? '∞'}',
+                      onDeleted: () {
+                        ref.read(itemQueryProvider.notifier).updateFilter(
+                              (ItemFilter f) => f.copyWith(
+                                clearMinSellingPrice: true,
+                                clearMaxSellingPrice: true,
+                              ),
+                            );
+                      },
+                    ),
+                ],
+                onClearAll: () {
+                  _searchCtrl.clear();
+                  ref.read(itemQueryProvider.notifier).reset();
+                },
+                clearAllLabel: 'Clear all',
+                clearAllColor: TallyColors.stockCritical,
               ),
-            ],
           ],
         );
       },

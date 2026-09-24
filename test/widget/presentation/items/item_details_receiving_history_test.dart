@@ -54,6 +54,14 @@ class _FakeReceivingRepository implements ReceivingRepository {
   @override
   Future<Result<Receiving>> voidReceiving(ReceivingId id, {String? reason}) =>
       throw UnimplementedError();
+
+  @override
+  Future<Result<Receiving>> update(Receiving receiving) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> delete(ReceivingId id) =>
+      throw UnimplementedError();
 }
 
 class _FakeItemRepo implements ItemRepository {

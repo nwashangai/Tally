@@ -17,6 +17,14 @@ abstract class ReceivingRepository {
   /// Persists a new receiving transaction (in draft or completed status).
   Future<Result<Receiving>> create(Receiving receiving);
 
+  /// Updates an existing draft receiving transaction and its lines.
+  /// Replaces lines in the database. Fails if the receiving is already completed or voided.
+  Future<Result<Receiving>> update(Receiving receiving);
+
+  /// Permanently deletes an uncompleted draft receiving and its lines.
+  /// Fails if the receiving is completed or voided.
+  Future<Result<void>> delete(ReceivingId id);
+
   /// Atomically completes a receiving:
   /// 1. Updates receiving status to `completed`
   /// 2. Records stock movements in `item_transactions` (`+quantity`)

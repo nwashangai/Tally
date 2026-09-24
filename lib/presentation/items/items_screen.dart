@@ -7,6 +7,9 @@ import '../../domain/item/item_query.dart';
 import '../design_system/extensions/responsive.dart';
 import '../design_system/tokens/colors.dart';
 import '../design_system/tokens/dimensions.dart';
+import '../design_system/widgets/tally_empty_state.dart';
+import '../design_system/widgets/tally_error_state.dart';
+import '../design_system/widgets/tally_pagination_bar.dart';
 import 'item_details_screen.dart';
 import 'item_form_screen.dart';
 import 'widgets/item_delete_confirm_dialog.dart';
@@ -255,92 +258,24 @@ class ItemsScreen extends ConsumerWidget {
     ItemQueryNotifier notifier,
     bool isPhone,
   ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: TallySpacing.md,
-        vertical: TallySpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(TallyRadii.md),
-        border: Border.all(color: TallyColors.lightBorder),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Range summary
-          Expanded(
-            child: Text(
-              isPhone
-                  ? '${result.startIndex}–${result.endIndex} of ${result.totalItems}'
-                  : 'Showing ${result.startIndex}–${result.endIndex} of ${result.totalItems} items',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: TallyColors.slateMuted,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-
-          // Controls
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!isPhone) ...[
-                const Text(
-                  'Per page: ',
-                  style: TextStyle(fontSize: 12, color: TallyColors.slateMuted),
-                ),
-                DropdownButton<int>(
-                  value: query.pageSize,
-                  underline: const SizedBox.shrink(),
-                  items: const [
-                    DropdownMenuItem(value: 25, child: Text('25')),
-                    DropdownMenuItem(value: 50, child: Text('50')),
-                    DropdownMenuItem(value: 100, child: Text('100')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) notifier.setPageSize(val);
-                  },
-                ),
-                const SizedBox(width: TallySpacing.md),
-              ],
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.chevron_left, size: 20),
-                onPressed: result.hasPreviousPage
-                    ? () => notifier.previousPage()
-                    : null,
-                tooltip: 'Previous page',
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '${result.page} / ${result.totalPages}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: TallyColors.primaryNavy,
-                ),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.chevron_right, size: 20),
-                onPressed:
-                    result.hasNextPage ? () => notifier.nextPage() : null,
-                tooltip: 'Next page',
-              ),
-            ],
-          ),
-        ],
-      ),
+    return TallyPaginationBar(
+      page: result.page,
+      totalPages: result.totalPages,
+      totalItems: result.totalItems,
+      startIndex: result.startIndex,
+      endIndex: result.endIndex,
+      itemLabel: 'items',
+      hasPreviousPage: result.hasPreviousPage,
+      hasNextPage: result.hasNextPage,
+      onPreviousPage: () => notifier.previousPage(),
+      onNextPage: () => notifier.nextPage(),
+      pageSize: query.pageSize,
+      availablePageSizes: const [25, 50, 100],
+      onPageSizeChanged: (val) => notifier.setPageSize(val),
+      isPhone: isPhone,
     );
   }
+
 
   Widget _buildLoadingSkeleton(bool isPhone) {
     return const Center(
@@ -369,185 +304,84 @@ class ItemsScreen extends ConsumerWidget {
     WidgetRef ref,
     Object error,
   ) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(TallySpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              size: 48,
-              color: TallyColors.stockCritical,
-            ),
-            const SizedBox(height: TallySpacing.md),
-            const Text(
-              "We couldn't load your items",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: TallyColors.primaryNavy,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.xs),
-            const Text(
-              'Your store data has not been deleted. Please try again.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: TallyColors.slateMuted,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.lg),
-            ElevatedButton.icon(
-              onPressed: () => ref.read(itemListProvider.notifier).load(),
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Try Again'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TallyColors.primaryNavy,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return TallyErrorState(
+      title: "We couldn't load your items",
+      description: 'Your store data has not been deleted. Please try again.',
+      onRetry: () => ref.read(itemListProvider.notifier).load(),
     );
   }
 
   Widget _buildInitialEmptyState(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(TallySpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(TallySpacing.xl),
-              decoration: const BoxDecoration(
-                color: TallyColors.iceFrost,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.inventory_2_outlined,
-                size: 56,
-                color: TallyColors.primaryNavy,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.lg),
-            const Text(
-              'No items yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: TallyColors.primaryNavy,
+    return TallyEmptyState.zeroData(
+      icon: Icons.inventory_2_outlined,
+      iconSize: 56,
+      title: 'No items yet',
+      description:
+          'Add the products you buy, hold, and sell to start tracking your inventory.',
+      action: Wrap(
+        spacing: TallySpacing.md,
+        runSpacing: TallySpacing.sm,
+        alignment: WrapAlignment.center,
+        children: [
+          ElevatedButton.icon(
+            onPressed: () => _openAddScreen(context),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add First Item'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TallyColors.primaryNavy,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: TallySpacing.xl,
+                vertical: TallySpacing.md,
               ),
             ),
-            const SizedBox(height: TallySpacing.xs),
-            const Text(
-              'Add the products you buy, hold, and sell to start tracking your inventory.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: TallyColors.slateMuted,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.lg),
-            Wrap(
-              spacing: TallySpacing.md,
-              runSpacing: TallySpacing.sm,
-              alignment: WrapAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _openAddScreen(context),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add First Item'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: TallyColors.primaryNavy,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: TallySpacing.xl,
-                      vertical: TallySpacing.md,
-                    ),
+          ),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final count = await showDialog<int>(
+                context: context,
+                builder: (_) => const ItemImportDialog(),
+              );
+              if (count != null && count > 0 && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Successfully imported $count items.'),
+                    backgroundColor: TallyColors.varianceZeroLight,
                   ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final count = await showDialog<int>(
-                      context: context,
-                      builder: (_) => const ItemImportDialog(),
-                    );
-                    if (count != null && count > 0 && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Successfully imported $count items.'),
-                          backgroundColor: TallyColors.varianceZeroLight,
-                        ),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.file_upload_outlined, size: 18),
-                  label: const Text('Import from File'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: TallyColors.primaryNavy,
-                    side: const BorderSide(color: TallyColors.lightBorder),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: TallySpacing.lg,
-                      vertical: TallySpacing.md,
-                    ),
-                  ),
-                ),
-              ],
+                );
+              }
+            },
+            icon: const Icon(Icons.file_upload_outlined, size: 18),
+            label: const Text('Import from File'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: TallyColors.primaryNavy,
+              side: const BorderSide(color: TallyColors.lightBorder),
+              padding: const EdgeInsets.symmetric(
+                horizontal: TallySpacing.lg,
+                vertical: TallySpacing.md,
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildSearchEmptyState(WidgetRef ref, ItemQuery query) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(TallySpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.search_off_outlined,
-              size: 48,
-              color: TallyColors.slateMuted,
-            ),
-            const SizedBox(height: TallySpacing.md),
-            const Text(
-              'No items found',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: TallyColors.primaryNavy,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.xs),
-            Text(
-              query.search.isNotEmpty
-                  ? 'We couldn\'t find any item matching "${query.search}".\nTry another name, SKU, or barcode.'
-                  : 'No items match your active filters.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: TallyColors.slateMuted,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.lg),
-            OutlinedButton(
-              onPressed: () => ref.read(itemQueryProvider.notifier).reset(),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: TallyColors.primaryNavy,
-                side: const BorderSide(color: TallyColors.lightBorderStrong),
-              ),
-              child: const Text('Clear Search & Filters'),
-            ),
-          ],
+    return TallyEmptyState.searchEmpty(
+      title: 'No items found',
+      description: query.search.isNotEmpty
+          ? 'We couldn\'t find any item matching "${query.search}".\nTry another name, SKU, or barcode.'
+          : 'No items match your active filters.',
+      action: OutlinedButton(
+        onPressed: () => ref.read(itemQueryProvider.notifier).reset(),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: TallyColors.primaryNavy,
+          side: const BorderSide(color: TallyColors.lightBorderStrong),
         ),
+        child: const Text('Clear Search & Filters'),
       ),
     );
   }
 }
+

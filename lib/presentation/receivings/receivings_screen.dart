@@ -8,6 +8,10 @@ import '../../domain/receiving/receiving_query.dart';
 import '../design_system/extensions/responsive.dart';
 import '../design_system/tokens/colors.dart';
 import '../design_system/tokens/dimensions.dart';
+import '../design_system/widgets/tally_cancel_button.dart';
+import '../design_system/widgets/tally_empty_state.dart';
+import '../design_system/widgets/tally_error_state.dart';
+import '../design_system/widgets/tally_pagination_bar.dart';
 import 'new_receiving_screen.dart';
 import 'receiving_details_screen.dart';
 import 'widgets/receiving_desktop_table.dart';
@@ -132,6 +136,10 @@ class ReceivingsScreen extends ConsumerWidget {
                                     receiving: rec,
                                     onTap: () =>
                                         _openDetailsScreen(context, rec),
+                                    onEditDraft: () =>
+                                        _editDraft(context, rec),
+                                    onDeleteDraft: () =>
+                                        _deleteDraft(context, ref, rec),
                                   );
                                 },
                               )
@@ -139,6 +147,10 @@ class ReceivingsScreen extends ConsumerWidget {
                                 receivings: receivings,
                                 onViewDetails: (rec) =>
                                     _openDetailsScreen(context, rec),
+                                onEditDraft: (rec) =>
+                                    _editDraft(context, rec),
+                                onDeleteDraft: (rec) =>
+                                    _deleteDraft(context, ref, rec),
                               ),
                       ),
                       const SizedBox(height: TallySpacing.sm),
@@ -181,6 +193,93 @@ class ReceivingsScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _editDraft(BuildContext context, Receiving receiving) async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => NewReceivingScreen(initialDraft: receiving),
+      ),
+    );
+  }
+
+  Future<void> _deleteDraft(
+    BuildContext context,
+    WidgetRef ref,
+    Receiving receiving,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(TallyRadii.lg),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline, color: TallyColors.stockCritical),
+            SizedBox(width: TallySpacing.sm),
+            Text(
+              'Delete Draft?',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: TallyColors.primaryNavy,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete draft receiving ${receiving.referenceNumber}? This action cannot be undone.',
+          style: const TextStyle(
+            fontSize: 14,
+            color: TallyColors.slateMuted,
+          ),
+        ),
+        actions: [
+          TallyCancelButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TallyColors.stockCritical,
+              foregroundColor: Colors.white,
+              shape: const StadiumBorder(),
+              padding: const EdgeInsets.symmetric(
+                horizontal: TallySpacing.xl,
+                vertical: TallySpacing.md,
+              ),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final res = await ref
+          .read(receivingListProvider.notifier)
+          .deleteDraft(receiving.id);
+      if (!context.mounted) return;
+      if (res.isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Draft receiving ${receiving.referenceNumber} deleted.'),
+            backgroundColor: TallyColors.varianceZeroLight,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to delete draft: ${res.errorOrNull?.toString() ?? "Unknown error"}',
+            ),
+            backgroundColor: TallyColors.stockCritical,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildLoadingSkeleton() {
     return const Center(
       child: Column(
@@ -203,160 +302,54 @@ class ReceivingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildErrorState(
-    BuildContext context,
-    WidgetRef ref,
-    Object error,
-  ) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(TallySpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              size: 48,
-              color: TallyColors.stockCritical,
-            ),
-            const SizedBox(height: TallySpacing.md),
-            const Text(
-              "We couldn't load receivings",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: TallyColors.primaryNavy,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.xs),
-            const Text(
-              'Your store data is safe in local encrypted storage. Please retry.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: TallyColors.slateMuted,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.lg),
-            ElevatedButton.icon(
-              onPressed: () => ref.read(receivingListProvider.notifier).load(),
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Try Again'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TallyColors.primaryNavy,
-                foregroundColor: Colors.white,
-                shape: const StadiumBorder(),
-              ),
-            ),
-          ],
-        ),
-      ),
+  Widget _buildErrorState(BuildContext context, WidgetRef ref, Object error) {
+    return TallyErrorState(
+      title: "We couldn't load receivings",
+      description:
+          'Your store data is safe in local encrypted storage. Please retry.',
+      onRetry: () => ref.read(receivingListProvider.notifier).load(),
     );
   }
 
   Widget _buildInitialEmptyState(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(TallySpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(TallySpacing.xl),
-              decoration: const BoxDecoration(
-                color: TallyColors.iceFrost,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.local_shipping_outlined,
-                size: 56,
-                color: TallyColors.primaryNavy,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.lg),
-            const Text(
-              'No receivings yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: TallyColors.primaryNavy,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.xs),
-            const Text(
-              'Record stock inbound from suppliers or manufacturers to update inventory and audit acquisition costs.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: TallyColors.slateMuted,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.xl),
-            ElevatedButton.icon(
-              onPressed: () => _openNewReceivingScreen(context),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('New Receiving'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TallyColors.primaryNavy,
-                foregroundColor: Colors.white,
-                shape: const StadiumBorder(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: TallySpacing.xl,
-                  vertical: TallySpacing.md,
-                ),
-              ),
-            ),
-          ],
+    return TallyEmptyState.zeroData(
+      icon: Icons.local_shipping_outlined,
+      iconSize: 56,
+      title: 'No receivings yet',
+      description:
+          'Record stock inbound from suppliers or manufacturers to update inventory and audit acquisition costs.',
+      action: ElevatedButton.icon(
+        onPressed: () => _openNewReceivingScreen(context),
+        icon: const Icon(Icons.add, size: 18),
+        label: const Text('New Receiving'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: TallyColors.primaryNavy,
+          foregroundColor: Colors.white,
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(
+            horizontal: TallySpacing.xl,
+            vertical: TallySpacing.md,
+          ),
         ),
       ),
     );
   }
 
   Widget _buildSearchEmptyState(WidgetRef ref, ReceivingQuery query) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(TallySpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.search_off_outlined,
-              size: 48,
-              color: TallyColors.slateMuted,
-            ),
-            const SizedBox(height: TallySpacing.md),
-            const Text(
-              'No receivings found',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: TallyColors.primaryNavy,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.xs),
-            Text(
-              query.search.isNotEmpty
-                  ? 'We couldn\'t find any receiving matching "${query.search}".\nTry searching another reference number or supplier.'
-                  : 'No receivings match your active filters.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: TallyColors.slateMuted,
-              ),
-            ),
-            const SizedBox(height: TallySpacing.lg),
-            OutlinedButton(
-              onPressed: () =>
-                  ref.read(receivingQueryProvider.notifier).clearFilters(),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: TallyColors.primaryNavy,
-                side: const BorderSide(color: TallyColors.lightBorderStrong),
-                shape: const StadiumBorder(),
-              ),
-              child: const Text('Clear Search & Filters'),
-            ),
-          ],
+    return TallyEmptyState.searchEmpty(
+      title: 'No receivings found',
+      description: query.search.isNotEmpty
+          ? 'We couldn\'t find any receiving matching "${query.search}".\nTry searching another reference number or supplier.'
+          : 'No receivings match your active filters.',
+      action: OutlinedButton(
+        onPressed: () =>
+            ref.read(receivingQueryProvider.notifier).clearFilters(),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: TallyColors.primaryNavy,
+          side: const BorderSide(color: TallyColors.lightBorderStrong),
+          shape: const StadiumBorder(),
         ),
+        child: const Text('Clear Search & Filters'),
       ),
     );
   }
@@ -372,62 +365,18 @@ class ReceivingsScreen extends ConsumerWidget {
         result.totalItems == 0 ? 0 : (result.page - 1) * result.pageSize + 1;
     final endItem = (result.page * result.pageSize).clamp(0, result.totalItems);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: TallySpacing.md,
-        vertical: TallySpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(TallyRadii.md),
-        border: Border.all(color: TallyColors.lightBorder),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            result.totalItems == 0
-                ? '0 receivings'
-                : isPhone
-                    ? '$startItem-$endItem of ${result.totalItems}'
-                    : 'Showing $startItem–$endItem of ${result.totalItems} receivings (Page ${result.page} of ${result.totalPages})',
-            style: const TextStyle(
-              fontSize: 12,
-              color: TallyColors.slateMuted,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left, size: 20),
-                onPressed:
-                    result.hasPreviousPage ? notifier.previousPage : null,
-                color: TallyColors.primaryNavy,
-                disabledColor: TallyColors.lightBorderStrong,
-                tooltip: 'Previous Page',
-                splashRadius: 18,
-              ),
-              Text(
-                '${result.page} / ${result.totalPages > 0 ? result.totalPages : 1}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: TallyColors.primaryNavy,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right, size: 20),
-                onPressed: result.hasNextPage ? notifier.nextPage : null,
-                color: TallyColors.primaryNavy,
-                disabledColor: TallyColors.lightBorderStrong,
-                tooltip: 'Next Page',
-                splashRadius: 18,
-              ),
-            ],
-          ),
-        ],
-      ),
+    return TallyPaginationBar(
+      page: result.page,
+      totalPages: result.totalPages > 0 ? result.totalPages : 1,
+      totalItems: result.totalItems,
+      startIndex: startItem,
+      endIndex: endItem,
+      itemLabel: 'receivings',
+      hasPreviousPage: result.hasPreviousPage,
+      hasNextPage: result.hasNextPage,
+      onPreviousPage: notifier.previousPage,
+      onNextPage: notifier.nextPage,
+      isPhone: isPhone,
     );
   }
 }

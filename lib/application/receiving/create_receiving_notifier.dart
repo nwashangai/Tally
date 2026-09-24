@@ -19,6 +19,7 @@ class CreateReceivingState extends Equatable {
   final String notes;
   final List<ReceivingLine> lines;
   final bool isSaving;
+  final bool isEditingDraft;
   final String? errorMessage;
 
   const CreateReceivingState({
@@ -29,6 +30,7 @@ class CreateReceivingState extends Equatable {
     this.notes = '',
     this.lines = const [],
     this.isSaving = false,
+    this.isEditingDraft = false,
     this.errorMessage,
   });
 
@@ -60,6 +62,7 @@ class CreateReceivingState extends Equatable {
     String? notes,
     List<ReceivingLine>? lines,
     bool? isSaving,
+    bool? isEditingDraft,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -71,6 +74,7 @@ class CreateReceivingState extends Equatable {
       notes: notes ?? this.notes,
       lines: lines ?? this.lines,
       isSaving: isSaving ?? this.isSaving,
+      isEditingDraft: isEditingDraft ?? this.isEditingDraft,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -84,6 +88,7 @@ class CreateReceivingState extends Equatable {
         notes,
         lines,
         isSaving,
+        isEditingDraft,
         errorMessage,
       ];
 }
@@ -109,10 +114,26 @@ class CreateReceivingNotifier extends StateNotifier<CreateReceivingState> {
   }
 
   Future<void> _initializeReference() async {
+    if (state.isEditingDraft || state.referenceNumber.isNotEmpty) return;
     final refRes = await _repository.getNextReferenceNumber();
-    if (refRes.isSuccess && mounted) {
+    if (refRes.isSuccess &&
+        mounted &&
+        !state.isEditingDraft &&
+        state.referenceNumber.isEmpty) {
       state = state.copyWith(referenceNumber: refRes.valueOrNull!);
     }
+  }
+
+  void initializeFromDraft(Receiving draft) {
+    state = CreateReceivingState(
+      receivingId: draft.id,
+      referenceNumber: draft.referenceNumber,
+      receivedAt: draft.receivedAt,
+      supplier: draft.supplier ?? '',
+      notes: draft.notes ?? '',
+      lines: draft.lines,
+      isEditingDraft: true,
+    );
   }
 
   void setReference(String ref) {
@@ -135,10 +156,10 @@ class CreateReceivingNotifier extends StateNotifier<CreateReceivingState> {
     Item item, {
     double quantity = 1,
     double? unitCost,
-    bool updateItemCost = false,
+    bool updateItemCost = true,
     double? newBaseSellingPrice,
     double? newMinSellingPrice,
-    bool updateItemPrice = false,
+    bool updateItemPrice = true,
   }) {
     final existingIndex =
         state.lines.indexWhere((l) => l.itemId.value == item.id.value);
@@ -308,7 +329,9 @@ class CreateReceivingNotifier extends StateNotifier<CreateReceivingState> {
         lines: state.lines,
       );
 
-      final result = await _repository.create(receiving);
+      final result = state.isEditingDraft
+          ? await _repository.update(receiving)
+          : await _repository.create(receiving);
       if (mounted) {
         state = state.copyWith(
           isSaving: false,
