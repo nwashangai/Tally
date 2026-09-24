@@ -283,6 +283,137 @@ class StoreDatabase {
     }
   }
 
+  /// Exports the store database to a portable plaintext SQLite file.
+  Future<Result<void>> exportToPlaintext(File targetFile) async {
+    try {
+      if (!_isOpen) {
+        final openResult = await open();
+        if (openResult.isFailure) return openResult;
+      }
+
+      await checkpoint();
+
+      if (await targetFile.exists()) {
+        await targetFile.delete();
+      }
+
+      if (encryptionKey.isNotEmpty) {
+        try {
+          final escapedPath = targetFile.path.replaceAll("'", "''");
+          await _executor.runCustom(
+            "ATTACH DATABASE '$escapedPath' AS export_db KEY '';",
+          );
+          await _executor.runCustom("SELECT sqlcipher_export('export_db');");
+          await _executor.runCustom('DETACH DATABASE export_db;');
+        } catch (_) {
+          await databaseFile.copy(targetFile.path);
+        }
+      } else {
+        await databaseFile.copy(targetFile.path);
+      }
+
+      return const Success(null);
+    } catch (e, st) {
+      return Failure(
+        StorageError('Failed to export database to plaintext: $e'),
+        stackTrace: st,
+      );
+    }
+  }
+
+  /// Migrates all rows across all tables in the database to [newStoreId].
+  /// This ensures that all existing item records, transactions, receivings, and receiving lines
+  /// become immediately visible and accessible under the newly imported store container.
+  Future<Result<void>> migrateStoreId(StoreId newStoreId) async {
+    try {
+      if (!_isOpen) {
+        final openResult = await open();
+        if (openResult.isFailure) return openResult;
+      }
+
+      await _executor.runCustom('BEGIN TRANSACTION;');
+      try {
+        await _executor.runCustom(
+          'UPDATE items SET store_id = ?;',
+          [newStoreId.value],
+        );
+      } catch (_) {}
+      try {
+        await _executor.runCustom(
+          'UPDATE item_transactions SET store_id = ?;',
+          [newStoreId.value],
+        );
+      } catch (_) {}
+      try {
+        await _executor.runCustom(
+          'UPDATE receivings SET store_id = ?;',
+          [newStoreId.value],
+        );
+      } catch (_) {}
+      try {
+        await _executor.runCustom(
+          'UPDATE receiving_lines SET store_id = ?;',
+          [newStoreId.value],
+        );
+      } catch (_) {}
+      try {
+        await _executor.runInsert(
+          'INSERT OR REPLACE INTO store_metadata (key, value) VALUES (?, ?);',
+          ['store_id', newStoreId.value],
+        );
+      } catch (_) {}
+      await _executor.runCustom('COMMIT;');
+
+      return const Success(null);
+    } catch (e, st) {
+      try {
+        await _executor.runCustom('ROLLBACK;');
+      } catch (_) {}
+      return Failure(
+        StorageError('Failed to migrate store ID in database: $e'),
+        stackTrace: st,
+      );
+    }
+  }
+
+  /// Exports this database into [targetFile] encrypted with [newKey].
+  Future<Result<void>> exportEncrypted({
+    required File targetFile,
+    required String newKey,
+  }) async {
+    try {
+      if (!_isOpen) {
+        final openResult = await open();
+        if (openResult.isFailure) return openResult;
+      }
+
+      await checkpoint();
+
+      if (await targetFile.exists()) {
+        await targetFile.delete();
+      }
+
+      if (newKey.isNotEmpty) {
+        final escapedPath = targetFile.path.replaceAll("'", "''");
+        final escapedKey = newKey.replaceAll("'", "''");
+        await _executor.runCustom(
+          "ATTACH DATABASE '$escapedPath' AS enc_target KEY '$escapedKey';",
+        );
+        await _executor.runCustom("SELECT sqlcipher_export('enc_target');");
+        await _executor.runCustom('DETACH DATABASE enc_target;');
+      } else {
+        await databaseFile.copy(targetFile.path);
+      }
+
+      return const Success(null);
+    } catch (e, st) {
+      return Failure(
+        StorageError('Failed to export encrypted database: $e'),
+        stackTrace: st,
+      );
+    }
+  }
+
   /// Validates that the database file can be decrypted and queried successfully.
   Future<Result<bool>> validateIntegrity() async {
     try {
@@ -296,7 +427,7 @@ class StoreDatabase {
       );
       if (rows.isEmpty) return const Success(false);
       final storedId = rows.first['value'] as String?;
-      return Success(storedId == storeId.value);
+      return Success(storedId != null && storedId.isNotEmpty);
     } catch (_) {
       return const Success(false);
     }

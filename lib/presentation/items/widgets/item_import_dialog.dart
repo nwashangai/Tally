@@ -91,12 +91,20 @@ class _ItemImportDialogState extends ConsumerState<ItemImportDialog> {
 
   Future<void> _downloadTemplate(ItemExportFormat format) async {
     try {
+      final box = context.findRenderObject() as RenderBox?;
+      final origin = box != null && box.hasSize
+          ? box.localToGlobal(Offset.zero) & box.size
+          : null;
+
       final importer = ref.read(itemImporterProvider);
       final res = await importer.generateSampleTemplate(format);
       if (res.isSuccess) {
         final exported = res.valueOrNull!;
         final exportService = ref.read(itemExportServiceProvider);
-        await exportService.shareOrSave(exported);
+        await exportService.shareOrSave(
+          exported,
+          sharePositionOrigin: origin,
+        );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

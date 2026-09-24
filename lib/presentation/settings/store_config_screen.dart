@@ -19,6 +19,47 @@ class _StoreConfigScreenState extends ConsumerState<StoreConfigScreen> {
   bool _isCheckpointing = false;
   bool _isValidating = false;
 
+  Future<void> _handleBackupToDevice(StoreSelected storeState) async {
+    final exportService = ref.read(storeExportServiceProvider);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final box = context.findRenderObject() as RenderBox?;
+    final origin = box != null && box.hasSize
+        ? box.localToGlobal(Offset.zero) & box.size
+        : null;
+
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(
+        content: Text('Flushing WAL and preparing backup file...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    final result = await exportService.backupStoreToDevice(
+      storeId: storeState.store.id,
+      storeName: storeState.store.name,
+      sharePositionOrigin: origin,
+    );
+
+    if (!mounted) return;
+
+    if (result.isSuccess) {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          backgroundColor: TallyColors.varianceZeroLight,
+          content: Text('Store backup file ready & share opened.'),
+        ),
+      );
+    } else {
+      final error = result.errorOrNull;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          backgroundColor: TallyColors.stockCritical,
+          content: Text('Backup failed: ${error?.toString()}'),
+        ),
+      );
+    }
+  }
+
   Future<void> _handleExport(StoreSelected storeState) async {
     final exportService = ref.read(storeExportServiceProvider);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -230,7 +271,7 @@ class _StoreConfigScreenState extends ConsumerState<StoreConfigScreen> {
                                   height: 20,
                                   child:
                                       CircularProgressIndicator(strokeWidth: 2),
-                                )
+                                 )
                               : const Icon(Icons.chevron_right),
                           onTap: _isValidating
                               ? null
@@ -250,7 +291,7 @@ class _StoreConfigScreenState extends ConsumerState<StoreConfigScreen> {
                                   height: 20,
                                   child:
                                       CircularProgressIndicator(strokeWidth: 2),
-                                )
+                                 )
                               : const Icon(Icons.chevron_right),
                           onTap: _isCheckpointing
                               ? null
@@ -258,11 +299,22 @@ class _StoreConfigScreenState extends ConsumerState<StoreConfigScreen> {
                         ),
                         const Divider(),
                         ListTile(
+                          leading: const Icon(Icons.backup_outlined,
+                              color: TallyColors.primaryNavy),
+                          title: const Text('Backup Store to Device'),
+                          subtitle: const Text(
+                              'Flushes WAL and opens share sheet to save database backup'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () =>
+                              _handleBackupToDevice(currentStoreState),
+                        ),
+                        const Divider(),
+                        ListTile(
                           leading: const Icon(Icons.download_rounded,
                               color: TallyColors.primaryNavy),
                           title: const Text('Export Store Database (.db)'),
                           subtitle: const Text(
-                              'Flushes WAL pages and creates a safe backup copy'),
+                              'Flushes WAL pages and creates a safe copy in temp storage'),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () => _handleExport(currentStoreState),
                         ),

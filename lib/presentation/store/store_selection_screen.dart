@@ -6,8 +6,11 @@ import '../../application/auth/auth_state_provider.dart';
 import '../../application/store/current_store_state.dart';
 import '../../application/store/store_list_notifier.dart';
 import '../../domain/auth/auth_state.dart';
+import '../../domain/store/store.dart';
 import '../design_system/tokens/colors.dart';
 import '../design_system/tokens/dimensions.dart';
+import 'widgets/store_delete_confirm_dialog.dart';
+import 'widgets/store_import_dialog.dart';
 
 /// Store selection screen displayed after authentication.
 /// Lists all stores accessible to the user and manages store activation.
@@ -37,6 +40,65 @@ class _StoreSelectionScreenState extends ConsumerState<StoreSelectionScreen> {
     }
   }
 
+  Future<void> _openImportDialog() async {
+    final importedStore = await showDialog<Store>(
+      context: context,
+      builder: (_) => const StoreImportDialog(),
+    );
+
+    if (importedStore != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: TallyColors.varianceZeroLight,
+          content: Text('Store "${importedStore.name}" imported successfully!'),
+        ),
+      );
+      // Automatically select the newly imported store
+      await ref.read(currentStoreProvider.notifier).selectStore(importedStore);
+    }
+  }
+
+  Future<void> _handleDeleteStore(Store store) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => StoreDeleteConfirmDialog(store: store),
+    );
+
+    if (confirmed == true && mounted) {
+      final authState = ref.read(authStateProvider).valueOrNull;
+      final userId =
+          authState is AuthStateAuthenticated ? authState.session.user.id : '';
+
+      final currentStore = ref.read(currentStoreProvider);
+      if (currentStore is StoreSelected && currentStore.store.id == store.id) {
+        await ref.read(currentStoreProvider.notifier).clearStore();
+      }
+
+      final result = await ref.read(storeListProvider.notifier).deleteStore(
+            storeId: store.id,
+            userId: userId,
+          );
+
+      if (!mounted) return;
+
+      if (result.isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: TallyColors.varianceZeroLight,
+            content: Text('Store "${store.name}" was permanently deleted.'),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: TallyColors.stockCritical,
+            content: Text('Failed to delete store: ${result.errorOrNull}'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider).valueOrNull;
@@ -55,6 +117,11 @@ class _StoreSelectionScreenState extends ConsumerState<StoreSelectionScreen> {
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            tooltip: 'Import Store from Backup',
+            onPressed: _openImportDialog,
+          ),
           if (user != null)
             Padding(
               padding: const EdgeInsets.only(right: TallySpacing.sm),
@@ -143,6 +210,7 @@ class _StoreSelectionScreenState extends ConsumerState<StoreSelectionScreen> {
             if (items.isEmpty) {
               return _EmptyStoresView(
                 onCreateTap: () => context.push('/stores/create'),
+                onImportTap: _openImportDialog,
               );
             }
 
@@ -175,6 +243,7 @@ class _StoreSelectionScreenState extends ConsumerState<StoreSelectionScreen> {
                               .downloadAndInstallStore(item.store);
                         }
                       },
+                      onDelete: () => _handleDeleteStore(item.store),
                     ),
                   ),
                   const SizedBox(height: TallySpacing.xxl),
@@ -197,8 +266,12 @@ class _StoreSelectionScreenState extends ConsumerState<StoreSelectionScreen> {
 
 class _EmptyStoresView extends StatelessWidget {
   final VoidCallback onCreateTap;
+  final VoidCallback onImportTap;
 
-  const _EmptyStoresView({required this.onCreateTap});
+  const _EmptyStoresView({
+    required this.onCreateTap,
+    required this.onImportTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -231,31 +304,61 @@ class _EmptyStoresView extends StatelessWidget {
             ),
             const SizedBox(height: TallySpacing.sm),
             const Text(
-              'Create your first store to set up its local encrypted database.',
+              'Create your first store or import an existing store from a backup file.',
               textAlign: TextAlign.center,
               style: TextStyle(color: TallyColors.slateMuted, fontSize: 14),
             ),
             const SizedBox(height: TallySpacing.xl),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: TallyColors.primaryNavy,
-                  foregroundColor: TallyColors.iceFrost,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: TallySpacing.xl,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(TallyRadii.md),
+            Wrap(
+              spacing: TallySpacing.md,
+              runSpacing: TallySpacing.md,
+              alignment: WrapAlignment.center,
+              children: [
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: TallyColors.primaryNavy,
+                      foregroundColor: TallyColors.iceFrost,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: TallySpacing.xl,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(TallyRadii.md),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add),
+                    label: const Text(
+                      'Create Store',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    onPressed: onCreateTap,
                   ),
                 ),
-                icon: const Icon(Icons.add),
-                label: const Text(
-                  'Create Store',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                SizedBox(
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: TallyColors.primaryNavy,
+                      side: const BorderSide(color: TallyColors.primaryNavy),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: TallySpacing.xl,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(TallyRadii.md),
+                      ),
+                    ),
+                    icon: const Icon(Icons.file_download_outlined),
+                    label: const Text(
+                      'Import from Backup',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    onPressed: onImportTap,
+                  ),
                 ),
-                onPressed: onCreateTap,
-              ),
+              ],
             ),
           ],
         ),
@@ -268,11 +371,13 @@ class _StoreCard extends StatelessWidget {
   final StoreItemState item;
   final bool isLoading;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   const _StoreCard({
     required this.item,
     required this.isLoading,
     required this.onTap,
+    required this.onDelete,
   });
 
   @override
@@ -363,12 +468,51 @@ class _StoreCard extends StatelessWidget {
                     color: TallyColors.primaryNavy,
                   ),
                 )
-              else
+              else ...[
+                PopupMenuButton<String>(
+                  icon: const Icon(
+                    Icons.more_vert,
+                    size: 20,
+                    color: TallyColors.slateMuted,
+                  ),
+                  tooltip: 'Store options',
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(TallyRadii.md),
+                  ),
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      onDelete();
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: TallyColors.stockCritical,
+                          ),
+                          SizedBox(width: TallySpacing.sm),
+                          Text(
+                            'Delete Store',
+                            style: TextStyle(
+                              color: TallyColors.stockCritical,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
                 const Icon(
                   Icons.arrow_forward_ios,
-                  size: 16,
+                  size: 14,
                   color: TallyColors.slateMuted,
                 ),
+              ],
             ],
           ),
         ),

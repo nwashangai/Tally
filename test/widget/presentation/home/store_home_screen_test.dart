@@ -107,6 +107,57 @@ void main() {
       expect(find.text('Receivings'), findsOneWidget);
       expect(find.text('Reports'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
+
+      // Verify each card has unique background color
+      final cards = tester.widgetList<Card>(find.byType(Card)).toList();
+      expect(cards.length, greaterThanOrEqualTo(5));
+      final bgColors = cards.map((c) => c.color).toSet();
+      expect(bgColors.length, greaterThanOrEqualTo(5));
+    });
+
+    testWidgets('renders centered menu icons on desktop / ipad screen sizes',
+        (tester) async {
+      tester.view.physicalSize = const Size(1024, 768);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final store = Store(
+        id: const StoreId('store-100'),
+        name: 'Chiagoziems Boutique',
+        ownerId: 'user-1',
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentStoreProvider.overrideWith(
+              (ref) => _FakeCurrentStoreNotifier(
+                StoreSelected(
+                  store: store,
+                  dbPath: '/data/tally/store-100.db',
+                  syncStatus: SyncStatus.local,
+                ),
+              ),
+            ),
+          ],
+          child: const MaterialApp(
+            home: StoreHomeScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Verify all module cards render with centered text alignment and icons
+      expect(find.text('Sales'), findsOneWidget);
+      final salesText = tester.widget<Text>(find.text('Sales'));
+      expect(salesText.textAlign, TextAlign.center);
+
+      expect(find.text('Items'), findsOneWidget);
+      final itemsText = tester.widget<Text>(find.text('Items'));
+      expect(itemsText.textAlign, TextAlign.center);
     });
   });
 }

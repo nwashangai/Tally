@@ -1,3 +1,4 @@
+import 'dart:ui';
 import '../../core/result/result.dart';
 import 'item_export.dart';
 
@@ -7,5 +8,8 @@ abstract interface class ItemExportService {
   Future<Result<ExportedFile>> export(ItemExportRequest request);
 
   /// Shares or triggers download of the exported file on the host platform.
-  Future<Result<void>> shareOrSave(ExportedFile file);
+  Future<Result<void>> shareOrSave(
+    ExportedFile file, {
+    Rect? sharePositionOrigin,
+  });
 }

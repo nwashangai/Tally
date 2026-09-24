@@ -58,6 +58,11 @@ class _ItemExportDialogState extends ConsumerState<ItemExportDialog> {
         storeName: storeName,
       );
 
+      final box = context.findRenderObject() as RenderBox?;
+      final origin = box != null && box.hasSize
+          ? box.localToGlobal(Offset.zero) & box.size
+          : null;
+
       final exportService = ref.read(itemExportServiceProvider);
       final result = await exportService.export(request);
 
@@ -70,7 +75,10 @@ class _ItemExportDialogState extends ConsumerState<ItemExportDialog> {
       }
 
       final exportedFile = result.valueOrNull!;
-      final shareResult = await exportService.shareOrSave(exportedFile);
+      final shareResult = await exportService.shareOrSave(
+        exportedFile,
+        sharePositionOrigin: origin,
+      );
 
       if (!mounted) return;
 

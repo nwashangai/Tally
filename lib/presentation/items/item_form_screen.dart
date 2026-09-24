@@ -35,6 +35,7 @@ class _ItemFormScreenState extends ConsumerState<ItemFormScreen> {
   late final TextEditingController _barcodeCtrl;
   late final TextEditingController _descriptionCtrl;
   late final TextEditingController _categoryCtrl;
+  late final FocusNode _categoryFocusNode;
   late final TextEditingController _costPriceCtrl;
   late final TextEditingController _baseSellingPriceCtrl;
   late final TextEditingController _minSellingPriceCtrl;
@@ -58,6 +59,7 @@ class _ItemFormScreenState extends ConsumerState<ItemFormScreen> {
     _barcodeCtrl = TextEditingController(text: item?.barcode ?? '');
     _descriptionCtrl = TextEditingController(text: item?.description ?? '');
     _categoryCtrl = TextEditingController(text: item?.categoryId ?? '');
+    _categoryFocusNode = FocusNode();
     _costPriceCtrl = TextEditingController(
       text: item != null
           ? item.pricing.costPrice.toStringAsFixed(
@@ -103,6 +105,7 @@ class _ItemFormScreenState extends ConsumerState<ItemFormScreen> {
     _barcodeCtrl.dispose();
     _descriptionCtrl.dispose();
     _categoryCtrl.dispose();
+    _categoryFocusNode.dispose();
     _costPriceCtrl.dispose();
     _baseSellingPriceCtrl.dispose();
     _minSellingPriceCtrl.dispose();
@@ -269,6 +272,7 @@ class _ItemFormScreenState extends ConsumerState<ItemFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isPhone = context.isPhone;
+    final categories = ref.watch(itemCategoriesProvider).valueOrNull ?? [];
 
     return Scaffold(
       backgroundColor: TallyColors.lightCanvas,
@@ -444,14 +448,7 @@ class _ItemFormScreenState extends ConsumerState<ItemFormScreen> {
 
                           // Category & Unit
                           if (isPhone) ...[
-                            TextFormField(
-                              controller: _categoryCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Category',
-                                hintText: 'e.g. Drinks, Food, Bakery',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
+                            _buildCategoryField(categories),
                             const SizedBox(height: TallySpacing.md),
                             DropdownButtonFormField<ItemUnit>(
                               initialValue: _unit,
@@ -479,14 +476,7 @@ class _ItemFormScreenState extends ConsumerState<ItemFormScreen> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: TextFormField(
-                                    controller: _categoryCtrl,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Category',
-                                      hintText: 'e.g. Drinks, Food, Bakery',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
+                                  child: _buildCategoryField(categories),
                                 ),
                                 const SizedBox(width: TallySpacing.md),
                                 Expanded(
@@ -903,4 +893,108 @@ class _ItemFormScreenState extends ConsumerState<ItemFormScreen> {
       ),
     );
   }
+
+  Widget _buildCategoryField(List<String> categories) {
+    return RawAutocomplete<String>(
+      textEditingController: _categoryCtrl,
+      focusNode: _categoryFocusNode,
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (categories.isEmpty) {
+          return const Iterable<String>.empty();
+        }
+        final query = textEditingValue.text.trim().toLowerCase();
+        if (query.isEmpty) {
+          return categories;
+        }
+        return categories.where((cat) => cat.toLowerCase().contains(query));
+      },
+      onSelected: (String selection) {
+        _categoryCtrl.text = selection;
+      },
+      fieldViewBuilder: (
+        BuildContext context,
+        TextEditingController controller,
+        FocusNode focusNode,
+        VoidCallback onFieldSubmitted,
+      ) {
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: const InputDecoration(
+            labelText: 'Category',
+            hintText: 'e.g. Drinks, Food, Bakery',
+            border: OutlineInputBorder(),
+          ),
+          onFieldSubmitted: (_) => onFieldSubmitted(),
+        );
+      },
+      optionsViewBuilder: (
+        BuildContext context,
+        AutocompleteOnSelected<String> onSelected,
+        Iterable<String> options,
+      ) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(TallyRadii.md),
+              side: const BorderSide(color: TallyColors.lightBorder),
+            ),
+            color: Colors.white,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: 220,
+                maxWidth: MediaQuery.sizeOf(context).width < 400
+                    ? MediaQuery.sizeOf(context).width - 48
+                    : 360,
+              ),
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                shrinkWrap: true,
+                itemCount: options.length,
+                separatorBuilder: (_, __) => const Divider(
+                  height: 1,
+                  color: TallyColors.lightBorder,
+                ),
+                itemBuilder: (BuildContext context, int index) {
+                  final option = options.elementAt(index);
+                  return InkWell(
+                    onTap: () => onSelected(option),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.category_outlined,
+                            size: 16,
+                            color: TallyColors.slateMuted,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              option,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: TallyColors.primaryNavy,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
+

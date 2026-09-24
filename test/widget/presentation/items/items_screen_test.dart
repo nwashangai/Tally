@@ -151,6 +151,9 @@ void main() {
     expect(find.text('Coca-Cola 50cl'), findsOneWidget);
     expect(find.text('Peak Milk 400g'), findsOneWidget);
     expect(find.text('Showing 1–2 of 2 items'), findsOneWidget);
+
+    // Verify exactly 3 checkboxes (1 header + 2 rows), with NO duplicate checkboxes
+    expect(find.byType(Checkbox), findsNWidgets(3));
   });
 
   testWidgets('ItemsScreen renders mobile cards on mobile viewport',

@@ -176,21 +176,29 @@ class StoreHomeScreen extends ConsumerWidget {
               // Responsive Menu Grid
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                  final isDesktopOrTablet = constraints.maxWidth >= 600;
+                  final crossAxisCount = constraints.maxWidth >= 1024
+                      ? 3
+                      : (constraints.maxWidth >= 600 ? 3 : 2);
+                  final childAspectRatio = constraints.maxWidth >= 1024
+                      ? 1.25
+                      : (constraints.maxWidth >= 600 ? 1.05 : 1.15);
+
                   return GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
-                      crossAxisSpacing: TallySpacing.md,
-                      mainAxisSpacing: TallySpacing.md,
-                      childAspectRatio: constraints.maxWidth > 600 ? 1.4 : 1.15,
+                      crossAxisSpacing: TallySpacing.lg,
+                      mainAxisSpacing: TallySpacing.lg,
+                      childAspectRatio: childAspectRatio,
                     ),
                     itemCount: menuModules.length,
                     itemBuilder: (context, index) {
                       final module = menuModules[index];
                       return _ModuleCard(
                         module: module,
+                        isDesktopOrTablet: isDesktopOrTablet,
                         onTap: () {
                           ref.read(selectedModuleIdProvider.notifier).state =
                               module.id;
@@ -208,93 +216,159 @@ class StoreHomeScreen extends ConsumerWidget {
   }
 }
 
+class _ModuleCardTheme {
+  final Color cardBg;
+  final Color borderColor;
+  final Color iconBg;
+  final Color iconColor;
+  final Color titleColor;
+  final Color descColor;
+
+  const _ModuleCardTheme({
+    required this.cardBg,
+    required this.borderColor,
+    required this.iconBg,
+    required this.iconColor,
+    required this.titleColor,
+    required this.descColor,
+  });
+
+  static _ModuleCardTheme forModule(StoreModuleId id) {
+    switch (id) {
+      case StoreModuleId.sales:
+        return const _ModuleCardTheme(
+          cardBg: Color(0xFFEFF6FF), // Soft Azure/Blue tint
+          borderColor: Color(0xFFBFDBFE),
+          iconBg: Color(0xFFDBEAFE),
+          iconColor: Color(0xFF1D4ED8),
+          titleColor: TallyColors.primaryNavy,
+          descColor: Color(0xFF475569),
+        );
+      case StoreModuleId.items:
+        return const _ModuleCardTheme(
+          cardBg: Color(0xFFECFDF5), // Soft Emerald/Mint tint
+          borderColor: Color(0xFFA7F3D0),
+          iconBg: Color(0xFFD1FAE5),
+          iconColor: Color(0xFF059669),
+          titleColor: TallyColors.primaryNavy,
+          descColor: Color(0xFF475569),
+        );
+      case StoreModuleId.receivings:
+        return const _ModuleCardTheme(
+          cardBg: Color(0xFFFFFBEB), // Soft Amber tint
+          borderColor: Color(0xFFFDE68A),
+          iconBg: Color(0xFFFEF3C7),
+          iconColor: Color(0xFFD97706),
+          titleColor: TallyColors.primaryNavy,
+          descColor: Color(0xFF475569),
+        );
+      case StoreModuleId.reports:
+        return const _ModuleCardTheme(
+          cardBg: Color(0xFFFAF5FF), // Soft Purple/Violet tint
+          borderColor: Color(0xFFE9D5FF),
+          iconBg: Color(0xFFF3E8FF),
+          iconColor: Color(0xFF7C3AED),
+          titleColor: TallyColors.primaryNavy,
+          descColor: Color(0xFF475569),
+        );
+      case StoreModuleId.settings:
+        return const _ModuleCardTheme(
+          cardBg: Color(0xFFF8FAFC), // Soft Slate tint
+          borderColor: Color(0xFFE2E8F0),
+          iconBg: Color(0xFFF1F5F9),
+          iconColor: Color(0xFF334155),
+          titleColor: TallyColors.primaryNavy,
+          descColor: Color(0xFF475569),
+        );
+      case StoreModuleId.home:
+      case StoreModuleId.custom:
+        return const _ModuleCardTheme(
+          cardBg: Color(0xFFF0FDFA), // Soft Teal tint
+          borderColor: Color(0xFF99F6E4),
+          iconBg: Color(0xFFCCFBF1),
+          iconColor: Color(0xFF0D9488),
+          titleColor: TallyColors.primaryNavy,
+          descColor: Color(0xFF475569),
+        );
+    }
+  }
+}
+
 class _ModuleCard extends StatelessWidget {
   final StoreModule module;
+  final bool isDesktopOrTablet;
   final VoidCallback onTap;
 
   const _ModuleCard({
     required this.module,
+    required this.isDesktopOrTablet,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final (accentColor, bgColor) = switch (module.id) {
-      StoreModuleId.sales => (
-          TallyColors.primaryNavy,
-          TallyColors.primaryNavy.withValues(alpha: 0.08)
-        ),
-      StoreModuleId.items => (
-          TallyColors.varianceZeroLight,
-          TallyColors.varianceZeroLight.withValues(alpha: 0.1)
-        ),
-      StoreModuleId.receivings => (
-          const Color(0xFF0284C7),
-          const Color(0xFF0284C7).withValues(alpha: 0.1)
-        ),
-      StoreModuleId.reports => (
-          const Color(0xFF8B5CF6),
-          const Color(0xFF8B5CF6).withValues(alpha: 0.1)
-        ),
-      StoreModuleId.settings => (
-          TallyColors.slateMuted,
-          TallyColors.slateMuted.withValues(alpha: 0.1)
-        ),
-      _ => (
-          TallyColors.primaryNavy,
-          TallyColors.primaryNavy.withValues(alpha: 0.08)
-        ),
-    };
+    final theme = _ModuleCardTheme.forModule(module.id);
 
     return Card(
       elevation: 0,
+      color: theme.cardBg,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(TallyRadii.lg),
-        side: const BorderSide(color: TallyColors.lightBorder),
+        side: BorderSide(color: theme.borderColor, width: 1.2),
       ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(TallyRadii.lg),
         child: Padding(
-          padding: const EdgeInsets.all(TallySpacing.md),
+          padding: EdgeInsets.all(
+            isDesktopOrTablet ? TallySpacing.lg : TallySpacing.md,
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(TallySpacing.sm),
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      borderRadius: BorderRadius.circular(TallyRadii.md),
-                    ),
-                    child: Icon(module.icon, color: accentColor, size: 24),
+              Container(
+                width: isDesktopOrTablet ? 64 : 48,
+                height: isDesktopOrTablet ? 64 : 48,
+                decoration: BoxDecoration(
+                  color: theme.iconBg,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: theme.borderColor.withValues(alpha: 0.8),
+                    width: 1.5,
                   ),
-                  const Spacer(),
-                  const Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 16,
-                    color: TallyColors.slateMuted,
+                ),
+                child: Center(
+                  child: Icon(
+                    module.icon,
+                    color: theme.iconColor,
+                    size: isDesktopOrTablet ? 32 : 24,
                   ),
-                ],
-              ),
-              const Spacer(),
-              Text(
-                module.label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: TallyColors.primaryNavy,
                 ),
               ),
-              const SizedBox(height: 2),
+              SizedBox(
+                height: isDesktopOrTablet ? TallySpacing.md : TallySpacing.sm,
+              ),
+              Text(
+                module.label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: isDesktopOrTablet ? 17 : 15,
+                  fontWeight: FontWeight.w700,
+                  color: theme.titleColor,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 3),
               Text(
                 module.description,
+                textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: TallyColors.slateMuted,
+                style: TextStyle(
+                  fontSize: isDesktopOrTablet ? 12 : 11,
+                  color: theme.descColor,
+                  height: 1.25,
                 ),
               ),
             ],

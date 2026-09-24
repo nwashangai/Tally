@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -85,7 +86,10 @@ class DefaultItemExportService implements ItemExportService {
   }
 
   @override
-  Future<Result<void>> shareOrSave(ExportedFile file) async {
+  Future<Result<void>> shareOrSave(
+    ExportedFile file, {
+    Rect? sharePositionOrigin,
+  }) async {
     try {
       final tempDir = await getTemporaryDirectory();
       final targetFile = File('${tempDir.path}/${file.fileName}');
@@ -97,10 +101,16 @@ class DefaultItemExportService implements ItemExportService {
         name: file.fileName,
       );
 
+      final safeOrigin =
+          (sharePositionOrigin != null && !sharePositionOrigin.isEmpty)
+              ? sharePositionOrigin
+              : const Rect.fromLTWH(0, 0, 300, 300);
+
       // ignore: deprecated_member_use
       final shareResult = await Share.shareXFiles(
         [xFile],
         subject: file.fileName,
+        sharePositionOrigin: safeOrigin,
       );
 
       if (shareResult.status == ShareResultStatus.dismissed) {

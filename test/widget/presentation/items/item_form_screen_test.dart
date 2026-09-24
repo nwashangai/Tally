@@ -19,6 +19,9 @@ import 'package:tally/presentation/items/item_form_screen.dart';
 
 class _FakeItemRepository implements ItemRepository {
   final List<Item> createdItems = [];
+  final List<String> categories;
+
+  _FakeItemRepository({this.categories = const []});
 
   @override
   Future<Result<PaginatedResult<Item>>> query(ItemQuery query) async =>
@@ -56,7 +59,7 @@ class _FakeItemRepository implements ItemRepository {
   @override
   Future<Result<bool>> hasTransactions(ItemId id) async => const Success(false);
   @override
-  Future<Result<List<String>>> getCategories() async => const Success([]);
+  Future<Result<List<String>>> getCategories() async => Success(categories);
   @override
   Future<Result<List<Item>>> getExportItems(ItemExportRequest request) async =>
       Success(createdItems);
@@ -246,4 +249,48 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
   });
+
+  testWidgets(
+      'Category input shows auto suggestion dropdown from existing categories',
+      (tester) async {
+    final fakeRepo = _FakeItemRepository(
+      categories: ['Beverages', 'Bakery', 'Dairy'],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          itemRepositoryProvider.overrideWithValue(fakeRepo),
+          currentStoreProvider.overrideWith(
+            (ref) => _FakeCurrentStoreNotifier(
+              StoreSelected(store: sampleStore, dbPath: '/test/store-1.db'),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ItemFormScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final categoryField = find.widgetWithText(TextFormField, 'Category');
+    expect(categoryField, findsOneWidget);
+
+    // Enter matching prefix into category field
+    await tester.enterText(categoryField, 'bev');
+    await tester.pumpAndSettle();
+
+    // Verify auto suggestion popup appears with 'Beverages'
+    expect(find.text('Beverages'), findsOneWidget);
+
+    // Tap the suggestion
+    await tester.tap(find.text('Beverages'));
+    await tester.pumpAndSettle();
+
+    // Verify category field now contains 'Beverages'
+    expect(find.widgetWithText(TextFormField, 'Beverages'), findsOneWidget);
+  });
 }
+

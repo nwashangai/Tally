@@ -45,6 +45,7 @@ class ItemDesktopTable extends ConsumerWidget {
 
     return TallyTableContainer(
       child: DataTable(
+        showCheckboxColumn: false,
         headingRowHeight: 44,
         dataRowMinHeight: 48,
         dataRowMaxHeight: 52,

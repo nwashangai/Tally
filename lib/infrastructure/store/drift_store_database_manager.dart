@@ -20,6 +20,9 @@ class DriftStoreDatabaseManager implements StoreDatabaseManager {
   })  : _baseDirectory = baseDirectory,
         _keyManager = keyManager;
 
+  /// Exposes the underlying key manager for import re-encryption workflows.
+  StoreKeyManager get keyManager => _keyManager;
+
   /// Convenience factory resolving application documents directory.
   static Future<DriftStoreDatabaseManager> initialize({
     required StoreKeyManager keyManager,
