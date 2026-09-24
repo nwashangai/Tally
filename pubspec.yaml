@@ -33,6 +33,7 @@ dependencies:
 
   # Deterministic Identifiers & Idempotency Keys
   uuid: ^4.5.1
+  equatable: ^2.0.7
 
   # Internationalization & formatting
   intl: ^0.20.2

@@ -375,9 +375,11 @@ class ItemDetailsScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+                // 5. Inbound Receiving & Acquisition History
+                _buildReceivingHistoryCard(context, ref, item),
                 const SizedBox(height: TallySpacing.md),
 
-                // 5. Audit & Activity Metadata (Timestamps)
+                // 6. Audit & Activity Metadata (Timestamps)
                 _buildAuditCard(item, dateFormat),
                 const SizedBox(height: TallySpacing.md),
 
@@ -737,6 +739,274 @@ class ItemDetailsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReceivingHistoryCard(
+    BuildContext context,
+    WidgetRef ref,
+    Item item,
+  ) {
+    final historyAsync = ref.watch(itemReceivingHistoryProvider(item.id));
+    final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(TallyRadii.lg),
+        side: const BorderSide(color: TallyColors.lightBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(TallySpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.local_shipping_outlined,
+                  size: 20,
+                  color: TallyColors.primaryNavy,
+                ),
+                const SizedBox(width: TallySpacing.sm),
+                const Expanded(
+                  child: Text(
+                    'Receiving History',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: TallyColors.primaryNavy,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: TallyColors.iceFrost,
+                    borderRadius: BorderRadius.circular(TallyRadii.full),
+                  ),
+                  child: const Text(
+                    'Inbound Stock',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: TallyColors.primaryNavy,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: TallySpacing.md),
+            historyAsync.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(TallySpacing.md),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: TallyColors.primaryNavy,
+                  ),
+                ),
+              ),
+              error: (err, _) => Padding(
+                padding: const EdgeInsets.all(TallySpacing.sm),
+                child: Text(
+                  'Failed to load receiving history: $err',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: TallyColors.stockCritical,
+                  ),
+                ),
+              ),
+              data: (history) {
+                if (history.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.all(TallySpacing.md),
+                    decoration: BoxDecoration(
+                      color: TallyColors.lightCanvas,
+                      borderRadius: BorderRadius.circular(TallyRadii.md),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.inbox_outlined,
+                          size: 20,
+                          color: TallyColors.slateMuted,
+                        ),
+                        SizedBox(width: TallySpacing.sm),
+                        Expanded(
+                          child: Text(
+                            'No inbound receiving transactions recorded yet for this item.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: TallyColors.slateMuted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    headingRowHeight: 36,
+                    dataRowMinHeight: 44,
+                    dataRowMaxHeight: 48,
+                    columnSpacing: 16,
+                    horizontalMargin: 8,
+                    headingRowColor: WidgetStateProperty.all(
+                      TallyColors.iceFrost.withValues(alpha: 0.5),
+                    ),
+                    columns: const [
+                      DataColumn(
+                        label: Text(
+                          'Reference',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: TallyColors.slateMuted,
+                          ),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Date',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: TallyColors.slateMuted,
+                          ),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Supplier',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: TallyColors.slateMuted,
+                          ),
+                        ),
+                      ),
+                      DataColumn(
+                        numeric: true,
+                        label: Text(
+                          'Quantity',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: TallyColors.slateMuted,
+                          ),
+                        ),
+                      ),
+                      DataColumn(
+                        numeric: true,
+                        label: Text(
+                          'Historical Cost',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: TallyColors.slateMuted,
+                          ),
+                        ),
+                      ),
+                      DataColumn(
+                        numeric: true,
+                        label: Text(
+                          'Subtotal',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: TallyColors.slateMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                    rows: history.map((h) {
+                      final cost = h.unitCost;
+                      final formattedCost =
+                          '₦${cost.toStringAsFixed(cost % 1 == 0 ? 0 : 2)}';
+                      final qtyStr = h.quantity
+                          .toStringAsFixed(h.quantity % 1 == 0 ? 0 : 2);
+
+                      return DataRow(
+                        cells: [
+                          DataCell(
+                            Text(
+                              h.referenceNumber,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: TallyColors.primaryNavy,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              dateFormat.format(h.receivedAt),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: TallyColors.primaryNavy,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              h.supplier?.isNotEmpty == true
+                                  ? h.supplier!
+                                  : '—',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: TallyColors.slateMuted,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              '+$qtyStr ${h.unitSnapshot}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: TallyColors.varianceZeroLight,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              formattedCost,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: TallyColors.primaryNavy,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              '₦${h.lineTotal.toStringAsFixed(h.lineTotal % 1 == 0 ? 0 : 2)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: TallyColors.primaryNavy,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

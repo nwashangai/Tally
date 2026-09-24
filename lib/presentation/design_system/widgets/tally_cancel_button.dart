@@ -6,11 +6,13 @@ import '../tokens/dimensions.dart';
 class TallyCancelButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String label;
+  final EdgeInsetsGeometry? padding;
 
   const TallyCancelButton({
     super.key,
     required this.onPressed,
     this.label = 'Cancel',
+    this.padding,
   });
 
   @override
@@ -22,10 +24,11 @@ class TallyCancelButton extends StatelessWidget {
         foregroundColor: TallyColors.buttonCancelForeground,
         elevation: 0,
         shadowColor: Colors.transparent,
-        padding: const EdgeInsets.symmetric(
-          horizontal: TallySpacing.xl,
-          vertical: TallySpacing.md,
-        ),
+        padding: padding ??
+            const EdgeInsets.symmetric(
+              horizontal: TallySpacing.xl,
+              vertical: TallySpacing.md,
+            ),
         shape: const StadiumBorder(),
       ),
       child: Text(

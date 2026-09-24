@@ -17,10 +17,23 @@ import '../../domain/item/item_export_service.dart';
 import '../../domain/item/item_id.dart';
 import '../../domain/item/item_query.dart';
 import '../../domain/item/item_repository.dart';
+import '../../domain/receiving/receiving.dart';
+import '../../domain/receiving/receiving_id.dart';
+import '../../domain/receiving/receiving_line_history.dart';
+import '../../domain/receiving/receiving_query.dart';
+import '../../domain/receiving/receiving_repository.dart';
 import '../../application/item/item_column_preferences.dart';
 import '../../application/item/item_list_notifier.dart';
 import '../../application/item/item_query_notifier.dart';
 import '../../application/item/item_selection_notifier.dart';
+import '../../application/receiving/create_receiving_notifier.dart';
+import '../../application/receiving/receiving_list_notifier.dart';
+import '../../application/receiving/receiving_query_notifier.dart';
+import '../../infrastructure/receiving/drift_receiving_repository.dart';
+import '../../domain/reports/reports_repository.dart';
+import '../../domain/reports/sales_profit_report.dart';
+import '../../infrastructure/reports/drift_reports_repository.dart';
+import '../../application/reports/reports_notifier.dart';
 import '../../domain/services/platform_services.dart';
 import '../../domain/store/remote_store_database_repository.dart';
 import '../../domain/store/store_database_manager.dart';
@@ -250,6 +263,78 @@ final itemCategoriesProvider = FutureProvider<List<String>>((ref) async {
 });
 
 // ---------------------------------------------------------------------------
+// Receiving application providers
+// ---------------------------------------------------------------------------
+
+/// Provider for [ReceivingRepository] bound to the active store database.
+final receivingRepositoryProvider = Provider<ReceivingRepository>((ref) {
+  final currentStoreState = ref.watch(currentStoreProvider);
+  final dbManager = ref.watch(storeDatabaseManagerProvider).valueOrNull;
+
+  if (currentStoreState is StoreSelected &&
+      dbManager is DriftStoreDatabaseManager) {
+    final activeDb = dbManager.getOpenStoreDatabase(currentStoreState.store.id);
+    if (activeDb != null) {
+      return DriftReceivingRepository(
+        database: activeDb,
+        storeId: currentStoreState.store.id,
+      );
+    }
+  }
+
+  return _FallbackReceivingRepository();
+});
+
+/// Current receiving query state (search, status filter, date range, sort, pagination).
+final receivingQueryProvider =
+    StateNotifierProvider<ReceivingQueryNotifier, ReceivingQuery>((ref) {
+  return ReceivingQueryNotifier();
+});
+
+/// Paginated receivings list provider.
+final receivingListProvider = StateNotifierProvider<ReceivingListNotifier,
+    AsyncValue<PaginatedResult<Receiving>>>((ref) {
+  final repo = ref.watch(receivingRepositoryProvider);
+  final query = ref.watch(receivingQueryProvider);
+  final notifier = ReceivingListNotifier(
+    repository: repo,
+    initialQuery: query,
+  );
+
+  ref.listen<ReceivingQuery>(receivingQueryProvider, (prev, next) {
+    if (prev != next) {
+      notifier.updateQuery(next);
+    }
+  });
+
+  return notifier;
+});
+
+/// Provider for creating a new receiving transaction.
+final createReceivingProvider = StateNotifierProvider.autoDispose<
+    CreateReceivingNotifier, CreateReceivingState>((ref) {
+  final repo = ref.watch(receivingRepositoryProvider);
+  final currentStoreState = ref.watch(currentStoreProvider);
+  final storeId = currentStoreState is StoreSelected
+      ? currentStoreState.store.id
+      : const StoreId('default');
+
+  return CreateReceivingNotifier(
+    repository: repo,
+    storeId: storeId,
+  );
+});
+
+/// Inbound receiving history for a specific item.
+final itemReceivingHistoryProvider =
+    FutureProvider.family<List<ReceivingLineHistory>, ItemId>(
+        (ref, itemId) async {
+  final repo = ref.watch(receivingRepositoryProvider);
+  final result = await repo.getItemReceivingHistory(itemId);
+  return result.valueOrNull ?? const [];
+});
+
+// ---------------------------------------------------------------------------
 // Platform service providers
 // ---------------------------------------------------------------------------
 
@@ -336,4 +421,89 @@ class _FallbackItemRepository implements ItemRepository {
   @override
   Future<Result<List<Item>>> getExportItems(ItemExportRequest request) async =>
       const Success([]);
+}
+
+class _FallbackReceivingRepository implements ReceivingRepository {
+  @override
+  Future<Result<PaginatedResult<Receiving>>> query(
+          ReceivingQuery query) async =>
+      Success(PaginatedResult<Receiving>(
+        items: const [],
+        page: query.page,
+        pageSize: query.pageSize,
+        totalItems: 0,
+      ));
+
+  @override
+  Future<Result<Receiving?>> getById(ReceivingId id) async =>
+      const Success(null);
+
+  @override
+  Future<Result<Receiving>> create(Receiving receiving) async =>
+      const Failure(StorageError('No active store selected.'));
+
+  @override
+  Future<Result<Receiving>> complete(ReceivingId id) async =>
+      const Failure(StorageError('No active store selected.'));
+
+  @override
+  Future<Result<Receiving>> voidReceiving(ReceivingId id,
+          {String? reason}) async =>
+      const Failure(StorageError('No active store selected.'));
+
+  @override
+  Future<Result<String>> getNextReferenceNumber() async =>
+      const Success('REC-000001');
+
+  @override
+  Future<Result<List<ReceivingLineHistory>>> getItemReceivingHistory(
+    ItemId itemId, {
+    int limit = 50,
+  }) async =>
+      const Success([]);
+}
+
+// ---------------------------------------------------------------------------
+// Reports application providers
+// ---------------------------------------------------------------------------
+
+/// Provider for [ReportsRepository] bound to the active store database.
+final reportsRepositoryProvider = Provider<ReportsRepository>((ref) {
+  final currentStoreState = ref.watch(currentStoreProvider);
+  final dbManager = ref.watch(storeDatabaseManagerProvider).valueOrNull;
+
+  if (currentStoreState is StoreSelected &&
+      dbManager is DriftStoreDatabaseManager) {
+    final activeDb = dbManager.getOpenStoreDatabase(currentStoreState.store.id);
+    if (activeDb != null) {
+      return DriftReportsRepository(
+        database: activeDb,
+        storeId: currentStoreState.store.id,
+      );
+    }
+  }
+
+  return _FallbackReportsRepository();
+});
+
+/// Provider for reports state notifier.
+final reportsNotifierProvider =
+    StateNotifierProvider.autoDispose<ReportsNotifier, ReportsState>((ref) {
+  final repo = ref.watch(reportsRepositoryProvider);
+  return ReportsNotifier(repository: repo);
+});
+
+class _FallbackReportsRepository implements ReportsRepository {
+  @override
+  Future<Result<SalesProfitReport>> getSalesProfitReport({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    return Success(SalesProfitReport(
+      startDate: startDate,
+      endDate: endDate,
+      itemReports: const [],
+      transactionCount: 0,
+    ));
+  }
 }

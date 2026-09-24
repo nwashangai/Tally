@@ -8,7 +8,7 @@ import '../../core/result/result.dart';
 import '../../domain/store/store_id.dart';
 
 /// Schema version for Tally store databases.
-const int kCurrentStoreDbSchemaVersion = 2;
+const int kCurrentStoreDbSchemaVersion = 4;
 
 /// Drift-backed database instance for a single Tally store.
 /// Manages connection, SQLCipher encryption pragma, and foundational schema tables.
@@ -163,6 +163,81 @@ class StoreDatabase {
 
     await _executor.runCustom(
       'CREATE INDEX IF NOT EXISTS idx_item_transactions_item ON item_transactions(store_id, item_id);',
+    );
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_item_transactions_ref ON item_transactions(store_id, reference_id);',
+    );
+
+    // Receivings table (Header)
+    await _executor.runCustom('''
+      CREATE TABLE IF NOT EXISTS receivings (
+        id TEXT PRIMARY KEY,
+        store_id TEXT NOT NULL,
+        reference_number TEXT NOT NULL,
+        received_at TEXT NOT NULL,
+        supplier TEXT,
+        notes TEXT,
+        status TEXT NOT NULL,
+        total_cost REAL NOT NULL,
+        created_by TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    ''');
+
+    await _executor.runCustom(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_receivings_store_ref ON receivings(store_id, reference_number);',
+    );
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_receivings_store_date ON receivings(store_id, received_at);',
+    );
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_receivings_store_status ON receivings(store_id, status);',
+    );
+
+    // Receiving Lines table (Line items)
+    await _executor.runCustom('''
+      CREATE TABLE IF NOT EXISTS receiving_lines (
+        id TEXT PRIMARY KEY,
+        receiving_id TEXT NOT NULL,
+        store_id TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        item_name_snapshot TEXT NOT NULL,
+        sku_snapshot TEXT,
+        unit_snapshot TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unit_cost REAL NOT NULL,
+        line_total REAL NOT NULL,
+        new_base_selling_price REAL,
+        new_min_selling_price REAL,
+        update_item_cost INTEGER NOT NULL DEFAULT 0,
+        update_item_price INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (receiving_id) REFERENCES receivings(id) ON DELETE CASCADE
+      );
+    ''');
+
+    // Migration compatibility for existing databases upgrading to v4
+    try {
+      await _executor.runCustom(
+        'ALTER TABLE receiving_lines ADD COLUMN new_base_selling_price REAL;',
+      );
+    } catch (_) {}
+    try {
+      await _executor.runCustom(
+        'ALTER TABLE receiving_lines ADD COLUMN new_min_selling_price REAL;',
+      );
+    } catch (_) {}
+    try {
+      await _executor.runCustom(
+        'ALTER TABLE receiving_lines ADD COLUMN update_item_price INTEGER NOT NULL DEFAULT 0;',
+      );
+    } catch (_) {}
+
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_receiving_lines_receiving ON receiving_lines(receiving_id);',
+    );
+    await _executor.runCustom(
+      'CREATE INDEX IF NOT EXISTS idx_receiving_lines_item ON receiving_lines(store_id, item_id);',
     );
 
     // Record store ID and schema version

@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/navigation/store_module.dart';
 import '../../presentation/home/store_home_screen.dart';
 import '../../presentation/items/items_screen.dart';
-import '../../presentation/receivings/receivings_placeholder_screen.dart';
-import '../../presentation/reports/reports_placeholder_screen.dart';
+import '../../presentation/receivings/receivings_screen.dart';
+import '../../presentation/reports/reports_screen.dart';
 import '../../presentation/sales/sales_placeholder_screen.dart';
 import '../../presentation/settings/store_settings_screen.dart';
 
@@ -56,7 +56,7 @@ final List<StoreModule> kDefaultStoreModules = [
     order: 3,
     category: StoreModuleCategory.operations,
     showInBottomNav: true,
-    builder: (context) => const ReceivingsPlaceholderScreen(),
+    builder: (context) => const ReceivingsScreen(),
   ),
   StoreModule(
     id: StoreModuleId.reports,
@@ -68,7 +68,7 @@ final List<StoreModule> kDefaultStoreModules = [
     order: 4,
     category: StoreModuleCategory.analytics,
     showInBottomNav: true,
-    builder: (context) => const ReportsPlaceholderScreen(),
+    builder: (context) => const ReportsScreen(),
   ),
   StoreModule(
     id: StoreModuleId.settings,
